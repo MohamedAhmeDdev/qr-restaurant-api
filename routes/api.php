@@ -26,7 +26,7 @@ Route::post('/register', [RegistrationController::class, 'register']);
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user/2fa-status', [AuthController::class, 'getTwoFactorStatus']);
     Route::post('/user/toggle-2fa', [AuthController::class, 'toggleTwoFactor']);
-
+    Route::post('/user/change-password', [AuthController::class, 'changePassword']);
    
 
      Route::get('/verify', [AuthController::class, 'verify']); 
