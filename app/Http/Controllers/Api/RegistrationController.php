@@ -109,10 +109,10 @@ class RegistrationController extends Controller
     {
         $validated = $request->validate([
             'token' => 'required|string',
-            'name' => 'required|string|max:255',
+            'name' => 'required|string|max:255|unique:users,name',
             'password' => 'required|string|min:8|confirmed',
-            'restaurant_name' => 'required|string|max:255',
-            'restaurant_slug' => 'required|string|max:255|unique:restaurants,slug',
+            'restaurant_name' => 'required|string|max:255|unique:restaurants,name',
+            'restaurant_slug' => 'required|string|max:255',
         ]);
 
         // 1. Verify invitation token
@@ -152,6 +152,7 @@ class RegistrationController extends Controller
                 'is_active' => true,
             ]);
 
+            // Attach user to restaurant pivot
             $user->restaurants()->attach($restaurant->id, [
                 'role_id' => $roleId,
             ]);
@@ -167,21 +168,17 @@ class RegistrationController extends Controller
             ];
         });
 
+        // 4. Resolve normalized user data for Restaurant Admin registration
+        $user = $session['user'];
+
         return response()->json([
             'message' => 'Account and restaurant onboarding completed successfully.',
             'user' => [
-                'id' => $session['user']->id,
-                'name' => $session['user']->name,
-                'email' => $session['user']->email,
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
                 'is_super_admin' => false,
-                'role' => 'Restaurant Admin',
-                'restaurants' => [
-                    [
-                        'id' => $session['restaurant']->id,
-                        'name' => $session['restaurant']->name,
-                        'slug' => $session['restaurant']->slug,
-                    ]
-                ],
+                'role' => 'restaurant_admin',
             ],
             'token' => $session['token'],
         ], 201);

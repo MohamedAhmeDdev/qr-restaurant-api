@@ -18,63 +18,58 @@ class AuthController extends Controller
  /**
      * Handle User Login (Checks if 2FA is Enabled)
      */
-    public function login(Request $request)
-    {
-        $validated = $request->validate([
-            'email' => 'required|email',
-            'password' => 'required',
-        ]);
+public function login(Request $request)
+{
+    $validated = $request->validate([
+        'email' => 'required|email',
+        'password' => 'required',
+    ]);
 
-        $user = User::where('email', $validated['email'])->first();
+    $user = User::where('email', $validated['email'])->first();
 
-        if (!$user || !Hash::check($validated['password'], $user->password)) {
-            throw ValidationException::withMessages([
-                'email' => ['The provided credentials are incorrect.'],
-            ]);
-        }
-
-        // --- Check 2FA Status ---
-        if ($user->two_factor_enabled) {
-            $code = (string) rand(100000, 999999);
-            $user->update([
-                'two_factor_code' => Hash::make($code),
-                'two_factor_expires_at' => now()->addMinutes(10),
-            ]);
-
-            $user->notify(new TwoFactorCodeNotification($code));
-
-            return response()->json([
-                'two_factor_required' => true,
-                'email' => $user->email,
-                'message' => 'A two-factor authentication code has been sent to your email.',
-            ]);
-        }
-
-        // --- Standard Login (2FA Disabled) ---
-        $user->tokens()->delete();
-        $token = $user->createToken('auth-token')->plainTextToken;
-
-        $restaurants = $user->is_super_admin 
-            ? Restaurant::all(['id', 'name', 'slug', 'logo'])
-            : $user->restaurants()->get(['restaurants.id', 'restaurants.name', 'restaurants.slug', 'restaurants.logo']);
-
-        $role = $user->is_super_admin ? 'super_admin' : ($user->roles->first()?->slug ?? 'restaurant_admin');
-
-        return response()->json([
-            'two_factor_required' => false,
-            'message' => 'Login successful',
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'is_super_admin' => $user->is_super_admin,
-                'two_factor_enabled' => $user->two_factor_enabled,
-                'role' => $role,
-                'restaurants' => $restaurants,
-            ],
-            'token' => $token,
+    if (!$user || !Hash::check($validated['password'], $user->password)) {
+        throw ValidationException::withMessages([
+            'email' => ['The provided credentials are incorrect.'],
         ]);
     }
+
+    // --- Check 2FA Status ---
+    if ($user->two_factor_enabled) {
+        $code = (string) rand(100000, 999999);
+        $user->update([
+            'two_factor_code' => Hash::make($code),
+            'two_factor_expires_at' => now()->addMinutes(10),
+        ]);
+
+        $user->notify(new TwoFactorCodeNotification($code));
+
+        return response()->json([
+            'two_factor_required' => true,
+            'email' => $user->email,
+            'message' => 'A two-factor authentication code has been sent to your email.',
+        ]);
+    }
+
+    // --- Standard Login (2FA Disabled) ---
+    $user->tokens()->delete();
+    $token = $user->createToken('auth-token')->plainTextToken;
+
+    $role = $user->is_super_admin ? 'super_admin' : ($user->roles->first()?->slug ?? 'restaurant_admin');
+
+    return response()->json([
+        'two_factor_required' => false,
+        'message' => 'Login successful',
+        'user' => [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'is_super_admin' => $user->is_super_admin,
+            'two_factor_enabled' => $user->two_factor_enabled,
+            'role' => $role,
+        ],
+        'token' => $token,
+    ]);
+}
 
     /**
      * Toggle Two-Factor Authentication On/Off
@@ -109,65 +104,60 @@ class AuthController extends Controller
     /**
      * Verify 2FA Code & Complete Login
      */
-    public function verifyTwoFactor(Request $request)
-    {
-        $validated = $request->validate([
-            'email' => 'required|email',
-            'code' => 'required|string|size:6',
-        ]);
+public function verifyTwoFactor(Request $request)
+{
+    $validated = $request->validate([
+        'email' => 'required|email',
+        'code' => 'required|string|size:6',
+    ]);
 
-        $user = User::where('email', $validated['email'])->first();
+    $user = User::where('email', $validated['email'])->first();
 
-        // Specific Error 1: Invalid Email
-        if (!$user) {
-            throw ValidationException::withMessages([
-                'email' => ['No account found matching this email address.'],
-            ]);
-        }
-
-        // Specific Error 2: Code Expired or Not Set
-        if (!$user->two_factor_code || !$user->two_factor_expires_at || now()->gt($user->two_factor_expires_at)) {
-            throw ValidationException::withMessages([
-                'code' => ['Your 2FA code has expired. Please log in again to receive a new code.'],
-            ]);
-        }
-
-        // Specific Error 3: Wrong 2FA Code
-        if (!Hash::check($validated['code'], $user->two_factor_code)) {
-            throw ValidationException::withMessages([
-                'code' => ['The 2FA code you entered is invalid.'],
-            ]);
-        }
-
-        // Clear 2FA code
-        $user->update([
-            'two_factor_code' => null,
-            'two_factor_expires_at' => null,
-        ]);
-
-        // Issue Sanctum Token
-        $user->tokens()->delete();
-        $token = $user->createToken('auth-token')->plainTextToken;
-
-        $restaurants = $user->is_super_admin 
-            ? Restaurant::all(['id', 'name', 'slug', 'logo'])
-            : $user->restaurants()->get(['restaurants.id', 'restaurants.name', 'restaurants.slug', 'restaurants.logo']);
-
-        $role = $user->is_super_admin ? 'super_admin' : ($user->roles->first()?->slug ?? 'restaurant_admin');
-
-        return response()->json([
-            'message' => 'Login successful',
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'is_super_admin' => $user->is_super_admin,
-                'role' => $role,
-                'restaurants' => $restaurants,
-            ],
-            'token' => $token,
+    // Specific Error 1: Invalid Email
+    if (!$user) {
+        throw ValidationException::withMessages([
+            'email' => ['No account found matching this email address.'],
         ]);
     }
+
+    // Specific Error 2: Code Expired or Not Set
+    if (!$user->two_factor_code || !$user->two_factor_expires_at || now()->gt($user->two_factor_expires_at)) {
+        throw ValidationException::withMessages([
+            'code' => ['Your 2FA code has expired. Please log in again to receive a new code.'],
+        ]);
+    }
+
+    // Specific Error 3: Wrong 2FA Code
+    if (!Hash::check($validated['code'], $user->two_factor_code)) {
+        throw ValidationException::withMessages([
+            'code' => ['The 2FA code you entered is invalid.'],
+        ]);
+    }
+
+    // Clear 2FA code
+    $user->update([
+        'two_factor_code' => null,
+        'two_factor_expires_at' => null,
+    ]);
+
+    // Issue Sanctum Token
+    $user->tokens()->delete();
+    $token = $user->createToken('auth-token')->plainTextToken;
+
+    $role = $user->is_super_admin ? 'super_admin' : ($user->roles->first()?->slug ?? 'restaurant_admin');
+
+    return response()->json([
+        'message' => 'Login successful',
+        'user' => [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'is_super_admin' => $user->is_super_admin,
+            'role' => $role,
+        ],
+        'token' => $token,
+    ]);
+}
 
     /**
      * Send Password Reset Link Email
@@ -257,27 +247,30 @@ class AuthController extends Controller
     * Verify Current Auth Token and Return User Data
      */
 
-      public function verify(Request $request)
-    {
-        $user = $request->user();
+public function verify(Request $request)
+{
+    $user = $request->user();
 
-        $restaurants = $user->is_super_admin 
-            ? Restaurant::all(['id', 'name', 'slug', 'logo'])
-            : $user->restaurants()->get(['restaurants.id', 'restaurants.name', 'restaurants.slug', 'restaurants.logo']);
+    $restaurants = $user->restaurants()->get([
+        'restaurants.id', 
+        'restaurants.name', 
+        'restaurants.slug', 
+        'restaurants.logo'
+    ]);
 
-        $role = $user->is_super_admin ? 'super_admin' : ($user->roles->first()?->slug ?? 'restaurant_admin');
+    $role = $user->roles->first()?->slug ?? 'restaurant_admin';
 
-        return response()->json([
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'is_super_admin' => $user->is_super_admin,
-                'role' => $role,
-                'restaurants' => $restaurants,
-            ]
-        ]);
-    }
+    return response()->json([
+        'user' => [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+            'is_super_admin' => false,
+            'role' => $role,
+            'restaurants' => $restaurants,
+        ]
+    ]);
+}
 
     /**
  * Change authenticated user's password
