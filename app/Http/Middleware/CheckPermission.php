@@ -8,45 +8,42 @@ use Symfony\Component\HttpFoundation\Response;
 
 class CheckPermission
 {
-    public function handle(
-        Request $request,
-        Closure $next,
-        string ...$permissions
-    ): Response {
+    /**
+     * Handle an incoming request.
+     * Check if the authenticated user has any of the specified permissions.
+     */
+    public function handle(Request $request, Closure $next, string ...$permissions): Response
+    {
         $user = $request->user();
 
-        /*
-        |--------------------------------------------------------------------------
-        | Authentication check
-        |--------------------------------------------------------------------------
-        */
-
-        if (!$user) {
+        if (! $user) {
             return response()->json([
+                'status' => 'error',
                 'message' => 'Unauthenticated.',
             ], 401);
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Permission check
-        |--------------------------------------------------------------------------
-        */
+        // Super admins automatically bypass permission checks
+        if ($user->roles()->where('slug', 'super_admin')->exists()) {
+            return $next($request);
+        }
 
-        foreach ($permissions as $permission) {
-            if ($user->hasPermission($permission)) {
-                return $next($request);
+        // Check if user has a role with any of the required permission slugs
+        if (! empty($permissions)) {
+            $hasPermission = $user->roles()
+                ->whereHas('permissions', function ($query) use ($permissions) {
+                    $query->whereIn('slug', $permissions);
+                })
+                ->exists();
+
+            if (! $hasPermission) {
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Forbidden. You do not have permission to perform this action.',
+                ], 403);
             }
         }
 
-        /*
-        |--------------------------------------------------------------------------
-        | Authorization failed
-        |--------------------------------------------------------------------------
-        */
-
-        return response()->json([
-            'message' => 'You do not have permission to perform this action.',
-        ], 403);
+        return $next($request);
     }
 }

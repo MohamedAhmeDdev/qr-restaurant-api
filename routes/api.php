@@ -1,7 +1,10 @@
 <?php
 
+use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\RegistrationController;
+use App\Http\Controllers\Api\RoleController;
+use App\Http\Controllers\Api\OrganizationController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -35,6 +38,44 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
 
-   // Super Admin Routes
-     Route::post('/admin/invitations/send', [RegistrationController::class, 'sendInvite']);
+
+   // Permission Management Routes (Super Admin Only)
+    Route::prefix('admin/permissions')->middleware('super_admin')->group(function () {
+        Route::get('/', [PermissionController::class, 'index']);
+        Route::post('/', [PermissionController::class, 'store']);
+        Route::get('/{permission}', [PermissionController::class, 'show']);
+        Route::put('/{permission}', [PermissionController::class, 'update']);
+        Route::delete('/{permission}', [PermissionController::class, 'destroy']);
+    });
+
+    // Role Management Routes (Super Admin Only)
+    Route::prefix('admin/roles')->middleware('super_admin')->group(function () {
+        Route::get('/', [RoleController::class, 'index']);
+        Route::post('/', [RoleController::class, 'store']);
+        Route::get('/{role}', [RoleController::class, 'show']);
+        Route::put('/{role}', [RoleController::class, 'update']);
+        Route::delete('/{role}', [RoleController::class, 'destroy']);
+        Route::post('/{role}/sync-permissions', [RoleController::class, 'syncPermissions'])
+        ->middleware('permission:permissions.assign');;
+    });
+
+
+
+         // Get all organizations + owners + restaurant counts
+    Route::get('/organizations', [OrganizationController::class, 'index']);
+  
+
+    // Get specific organization + list of all its restaurants
+    Route::get('/organizations/{id}', [OrganizationController::class, 'show']);
+  
+
+    // Get invitations list
+    Route::get('/invitations', [OrganizationController::class, 'getInvitations']);
+      
+
+    Route::post('/admin/invitations/send', [RegistrationController::class, 'sendInvite']);
+     
+
+        Route::post('/invitations/resend', [RegistrationController::class, 'resendInvite']);
+
 });

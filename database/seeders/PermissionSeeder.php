@@ -10,15 +10,42 @@ class PermissionSeeder extends Seeder
     public function run(): void
     {
         $permissions = [
+  // Permissions
+                [
+                'name' => 'Assign Permissions',
+                'slug' => 'permissions.assign',
+                'group' => 'permissions',
+                'description' => 'Assign permissions to roles',
+            ],
+            
 
-            // Dashboard
+              // Roles
             [
-                'name' => 'View Dashboard',
-                'slug' => 'dashboard.view',
-                'group' => 'dashboard',
-                'description' => 'View the restaurant dashboard',
+                'name' => 'View Roles',
+                'slug' => 'roles.view',
+                'group' => 'roles',
+                'description' => 'View roles',
+            ],
+            [
+                'name' => 'Create Roles',
+                'slug' => 'roles.create',
+                'group' => 'roles',
+                'description' => 'Create roles',
+            ],
+            [
+                'name' => 'Update Roles',
+                'slug' => 'roles.update',
+                'group' => 'roles',
+                'description' => 'Update roles',
+            ],
+            [
+                'name' => 'Delete Roles',
+                'slug' => 'roles.delete',
+                'group' => 'roles',
+                'description' => 'Delete roles',
             ],
 
+            
             // Restaurants
             [
                 'name' => 'View Restaurant',
@@ -59,41 +86,10 @@ class PermissionSeeder extends Seeder
                 'description' => 'Delete restaurant users',
             ],
 
-            // Roles
-            [
-                'name' => 'View Roles',
-                'slug' => 'roles.view',
-                'group' => 'roles',
-                'description' => 'View roles',
-            ],
-            [
-                'name' => 'Create Roles',
-                'slug' => 'roles.create',
-                'group' => 'roles',
-                'description' => 'Create roles',
-            ],
-            [
-                'name' => 'Update Roles',
-                'slug' => 'roles.update',
-                'group' => 'roles',
-                'description' => 'Update roles',
-            ],
-            [
-                'name' => 'Delete Roles',
-                'slug' => 'roles.delete',
-                'group' => 'roles',
-                'description' => 'Delete roles',
-            ],
-
-            // Permissions
-            [
-                'name' => 'View Permissions',
-                'slug' => 'permissions.view',
-                'group' => 'permissions',
-                'description' => 'View permissions',
-            ],
-
-            // Tables
+          
+      
+    
+                        // Tables
             [
                 'name' => 'View Tables',
                 'slug' => 'tables.view',
@@ -118,6 +114,8 @@ class PermissionSeeder extends Seeder
                 'group' => 'tables',
                 'description' => 'Delete restaurant tables',
             ],
+
+
 
             // Menu
             [
@@ -144,6 +142,7 @@ class PermissionSeeder extends Seeder
                 'group' => 'menu',
                 'description' => 'Delete menu items',
             ],
+            
 
             // Orders
             [

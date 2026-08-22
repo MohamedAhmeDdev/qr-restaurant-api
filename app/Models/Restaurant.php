@@ -11,17 +11,23 @@ class Restaurant extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['name', 'slug', 'owner_id', 'is_active', 'logo'];
+    protected $fillable = ['name', 'slug', 'organization_id', 'is_active', 'status', 'logo'];
 
-    public function owner(): BelongsTo
+    /**
+     * Get the parent organization that owns this restaurant location.
+     */
+    public function organization(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'owner_id');
+        return $this->belongsTo(Organizations::class);
     }
 
+    /**
+     * Get users assigned to this specific restaurant via user_roles.
+     */
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'user_roles')
                     ->withPivot('role_id')
                     ->withTimestamps();
-    } 
+    }
 }

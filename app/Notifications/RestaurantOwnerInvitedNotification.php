@@ -2,21 +2,17 @@
 
 namespace App\Notifications;
 
-use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class RestaurantOwnerInvitedNotification extends Notification implements ShouldQueue
+class RestaurantOwnerInvitedNotification extends Notification
 {
-    use Queueable;
-
-    public string $inviteUrl;
+    public string $token;
     public $expiresAt;
 
-    public function __construct(string $inviteUrl, $expiresAt)
+    public function __construct(string $token, $expiresAt)
     {
-        $this->inviteUrl = $inviteUrl;
+        $this->token = $token;
         $this->expiresAt = $expiresAt;
     }
 
@@ -27,12 +23,14 @@ class RestaurantOwnerInvitedNotification extends Notification implements ShouldQ
 
     public function toMail($notifiable): MailMessage
     {
+        $frontendUrl = config('app.frontend_url', 'http://localhost:5173');
+        $inviteUrl = "{$frontendUrl}/register?token={$this->token}";
+
         return (new MailMessage)
-            ->subject('Invitation to Join QRRestaurant')
-            ->greeting('Hello!')
-            ->line('You have been invited to set up your restaurant on the QRRestaurant platform.')
-            ->action('Complete Onboarding', $this->inviteUrl)
-            ->line('This invitation link will expire on ' . $this->expiresAt->format('M d, Y H:i A') . '.')
-            ->line('If you did not expect this invitation, no action is required.');
+            ->subject('Invitation to Join ' . config('app.name', 'QRRestaurant'))
+            ->view('emails.owner-invitation', [
+                'inviteUrl' => $inviteUrl,
+                'formattedExpiresAt' => $this->expiresAt->format('M d, Y \a\t H:i A'),
+            ]);
     }
 }
