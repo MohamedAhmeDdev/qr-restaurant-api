@@ -1,4 +1,4 @@
-FROM php:8.2-fpm-alpine
+FROM php:8.4-fpm-alpine
 
 # 1. Install system dependencies & build packages
 RUN apk add --no-cache \
@@ -29,13 +29,13 @@ COPY composer.json composer.lock ./
 
 ENV COMPOSER_ALLOW_SUPERUSER=1
 
-# 5. Run composer install with ignore-platform-reqs safety net
+# 5. Install dependencies (lock file now matches PHP 8.4)
 RUN composer install --no-dev --optimize-autoloader --no-scripts --no-interaction
 
-# 6. Copy the rest of the application files
+# 6. Copy application
 COPY . .
 
-# 7. Set permissions for Laravel storage and cache
+# 7. Set permissions
 RUN chown -R www-data:www-data storage bootstrap/cache
 
 EXPOSE 80
