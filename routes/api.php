@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Route;
 | Public Auth Routes
 |--------------------------------------------------------------------------
 */
+
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/verify-2fa', [AuthController::class, 'verifyTwoFactor']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
@@ -27,19 +28,29 @@ Route::post('/register', [RegistrationController::class, 'register']);
 |--------------------------------------------------------------------------
 */
 Route::middleware('auth:sanctum')->group(function () {
+    /*
+    |--------------------------------------------------------------------------
+    |//Settings APIs
+    |--------------------------------------------------------------------------
+    */
     Route::get('/user/2fa-status', [AuthController::class, 'getTwoFactorStatus']);
     Route::post('/user/toggle-2fa', [AuthController::class, 'toggleTwoFactor']);
     Route::post('/user/change-password', [AuthController::class, 'changePassword']);
-   
-
-     Route::get('/verify', [AuthController::class, 'verify']); 
-     Route::post('/logout', [AuthController::class, 'logout']);
 
 
+    Route::get('/verify', [AuthController::class, 'verify']);
+    Route::post('/logout', [AuthController::class, 'logout']);
 
 
 
-   // Permission Management Routes (Super Admin Only)
+
+
+    /*
+    |--------------------------------------------------------------------------
+        Super Admin APIs
+    |--------------------------------------------------------------------------
+    */
+    // Permission Management Routes (Super Admin Only)
     Route::prefix('admin/permissions')->middleware('super_admin')->group(function () {
         Route::get('/', [PermissionController::class, 'index']);
         Route::post('/', [PermissionController::class, 'store']);
@@ -56,26 +67,18 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/{role}', [RoleController::class, 'update']);
         Route::delete('/{role}', [RoleController::class, 'destroy']);
         Route::post('/{role}/sync-permissions', [RoleController::class, 'syncPermissions'])
-        ->middleware('permission:permissions.assign');;
+            ->middleware('permission:permissions.assign');;
     });
 
-
-
-         // Get all organizations + owners + restaurant counts
+    // Get all organizations + owners + restaurant counts
     Route::get('/organizations', [OrganizationController::class, 'index']);
-  
 
     // Get specific organization + list of all its restaurants
     Route::get('/organizations/{id}', [OrganizationController::class, 'show']);
-  
+
 
     // Get invitations list
     Route::get('/invitations', [OrganizationController::class, 'getInvitations']);
-      
-
-    Route::post('/admin/invitations/send', [RegistrationController::class, 'sendInvite']);
-     
-
-        Route::post('/invitations/resend', [RegistrationController::class, 'resendInvite']);
-
+    Route::post('/invitations/send', [RegistrationController::class, 'sendInvite']);
+    Route::post('/invitations/resend', [RegistrationController::class, 'resendInvite']);
 });
