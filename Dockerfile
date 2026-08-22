@@ -9,8 +9,9 @@ RUN apk add --no-cache \
     zip \
     unzip \
     oniguruma-dev \
-    icui18n \
     icu-dev \
+    icu-libs \
+    icu-data-full \
     && docker-php-ext-install pdo pdo_mysql bcmath zip gd intl
 
 # Install Composer
