@@ -23,7 +23,7 @@ class RestaurantOwnerInvitedNotification extends Notification
 
     public function toMail($notifiable): MailMessage
     {
-        $frontendUrl = config('app.frontend_url', 'http://localhost:5173');
+      $frontendUrl = config('app.frontend_url');
         $inviteUrl = "{$frontendUrl}/register?token={$this->token}";
 
         return (new MailMessage)
