@@ -12,26 +12,75 @@ use Illuminate\Support\Str;
 class PermissionController extends Controller
 {
     /**
-     * List permissions with optional grouping and filtering.
+     * List permissions with optional search, group filtering, and structured grouping.
      */
     public function index(Request $request): JsonResponse
     {
         $query = Permission::query();
 
+        // Search by keyword across name, slug, or group
+        if ($request->filled('search')) {
+            $search = $request->query('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('slug', 'like', "%{$search}%")
+                  ->orWhere('group', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        // Filter by specific group
         if ($request->filled('group')) {
             $query->where('group', $request->query('group'));
         }
 
         $permissions = $query->orderBy('group')->orderBy('name')->get();
 
+        // Extract clean array of unique groups
+        $groups = $permissions->pluck('group')
+            ->filter()
+            ->unique()
+            ->values();
+
+        // Format response based on 'grouped' parameter
         if ($request->boolean('grouped')) {
-            $permissions = $permissions->groupBy('group');
+            $groupedData = $permissions->groupBy(function ($item) {
+                return $item->group ?: 'General';
+            });
+
+            return response()->json([
+                'status' => 'success',
+                'message' => 'Grouped permissions retrieved successfully.',
+                'groups' => $groups,
+                'data' => $groupedData,
+            ]);
         }
 
         return response()->json([
             'status' => 'success',
             'message' => 'Permissions retrieved successfully.',
+            'groups' => $groups,
             'data' => $permissions,
+        ]);
+    }
+
+    /**
+     * Dedicated endpoint to fetch list of available group names.
+     */
+    public function getGroups(): JsonResponse
+    {
+        $groups = Permission::query()
+            ->select('group')
+            ->whereNotNull('group')
+            ->where('group', '!=', '')
+            ->distinct()
+            ->orderBy('group')
+            ->pluck('group');
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Permission groups retrieved successfully.',
+            'data' => $groups,
         ]);
     }
 
@@ -83,7 +132,6 @@ class PermissionController extends Controller
             'description' => ['nullable', 'string', 'max:500'],
         ]);
 
-        // If name or group changes, regenerate the dot-notation slug
         if (array_key_exists('name', $validated) || array_key_exists('group', $validated)) {
             $name = $validated['name'] ?? $permission->name;
             $group = array_key_exists('group', $validated) ? $validated['group'] : $permission->group;

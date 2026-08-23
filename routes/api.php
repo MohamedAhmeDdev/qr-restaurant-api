@@ -51,7 +51,8 @@ Route::middleware('auth:sanctum')->group(function () {
     |--------------------------------------------------------------------------
     */
     // Permission Management Routes (Super Admin Only)
-    Route::prefix('admin/permissions')->middleware('super_admin')->group(function () {
+    Route::prefix('/permissions')->middleware('super_admin')->group(function () {
+        Route::get('/group', [PermissionController::class, 'getGroups']);
         Route::get('/', [PermissionController::class, 'index']);
         Route::post('/', [PermissionController::class, 'store'])
          ->middleware('permission:permission.create');
@@ -63,7 +64,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Role Management Routes (Super Admin Only)
-    Route::prefix('admin/roles')->middleware('super_admin')->group(function () {
+    Route::prefix('/roles')->middleware('super_admin')->group(function () {
         Route::get('/', [RoleController::class, 'index']);
         Route::post('/', [RoleController::class, 'store'])
           ->middleware('permission:roles.create');
@@ -73,9 +74,10 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/{role}', [RoleController::class, 'destroy'])
           ->middleware('permission:roles.delete');
         Route::post('/{role}/sync-permissions', [RoleController::class, 'syncPermissions'])
-            ->middleware('permission:permissions.assign');;
+            ->middleware('permission:permissions.assign');
     });
 
+  
 
     // Get all organizations + owners + restaurant counts
     Route::get('/organizations', [OrganizationController::class, 'index']);

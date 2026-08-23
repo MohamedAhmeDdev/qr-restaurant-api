@@ -75,12 +75,24 @@ class RoleController extends Controller
     /**
      * Show a specific role with attached permissions.
      */
-    public function show(Role $role): JsonResponse
+  public function show(Request $request, Role $role): JsonResponse
     {
+        // Load permissions and counts
+        $role->load(['permissions' => function ($query) {
+            $query->select('permissions.id', 'permissions.name', 'permissions.slug', 'permissions.group', 'permissions.description')
+                  ->orderBy('group')
+                  ->orderBy('name');
+        }])->loadCount(['users', 'permissions']);
+
+        // Option to structure permissions by group for easier permission assignment matrices
+        if ($request->boolean('grouped') || $request->boolean('grouped_permissions')) {
+            $role->grouped_permissions = $role->permissions->groupBy(fn($p) => $p->group ?: 'General');
+        }
+
         return response()->json([
             'status' => 'success',
             'message' => 'Role retrieved successfully.',
-            'data' => $role->load('permissions'),
+            'data' => $role,
         ]);
     }
 
@@ -128,21 +140,21 @@ class RoleController extends Controller
     /**
      * Sync permissions assigned to a role.
      */
-    public function syncPermissions(Request $request, Role $role): JsonResponse
-    {
-        $validated = $request->validate([
-            'permission_ids' => ['required', 'array'],
-            'permission_ids.*' => ['integer', 'exists:permissions,id'],
-        ]);
+ public function syncPermissions(Request $request, Role $role): JsonResponse
+{
+    $validated = $request->validate([
+        'permission_ids'   => ['present', 'array'],
+        'permission_ids.*' => ['integer', 'exists:permissions,id'],
+    ]);
 
-        $role->permissions()->sync($validated['permission_ids']);
+    $role->permissions()->sync($validated['permission_ids']);
 
-        return response()->json([
-            'status' => 'success',
-            'message' => 'Role permissions updated successfully.',
-            'data' => $role->load('permissions:id,name,slug,group'),
-        ]);
-    }
+    return response()->json([
+        'status'  => 'success',
+        'message' => 'Role permissions updated successfully.',
+        'data'    => $role->load('permissions:id,name,slug,group'),
+    ]);
+}
 
     /**
      * Delete a role (protected for system roles).

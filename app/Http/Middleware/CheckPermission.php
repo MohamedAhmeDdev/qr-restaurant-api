@@ -24,7 +24,7 @@ class CheckPermission
         }
 
         // Super admins automatically bypass permission checks
-        if ($user->roles()->where('slug', 'super_admin')->exists()) {
+        if ($user->is_super_admin) {
             return $next($request);
         }
 
