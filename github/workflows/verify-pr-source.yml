@@ -1,0 +1,19 @@
+name: Enforce Production to Master Merge
+
+on:
+  pull_request:
+    branches:
+      - master
+    types: [opened, synchronize, reopened]
+
+jobs:
+  check-head-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify source branch is production
+        run: |
+          if [ "${{ github.head_ref }}" != "production" ]; then
+            echo "Error: Only pull requests coming from 'production' can be merged into 'master'."
+            echo "Current source branch: '${{ github.head_ref }}'"
+            exit 1
+          fi
