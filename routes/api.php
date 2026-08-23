@@ -53,22 +53,29 @@ Route::middleware('auth:sanctum')->group(function () {
     // Permission Management Routes (Super Admin Only)
     Route::prefix('admin/permissions')->middleware('super_admin')->group(function () {
         Route::get('/', [PermissionController::class, 'index']);
-        Route::post('/', [PermissionController::class, 'store']);
+        Route::post('/', [PermissionController::class, 'store'])
+         ->middleware('permission:permission.create');
         Route::get('/{permission}', [PermissionController::class, 'show']);
-        Route::put('/{permission}', [PermissionController::class, 'update']);
-        Route::delete('/{permission}', [PermissionController::class, 'destroy']);
+        Route::put('/{permission}', [PermissionController::class, 'update'])
+             ->middleware('permission:permission.update');
+        Route::delete('/{permission}', [PermissionController::class, 'destroy'])
+             ->middleware('permission:permission.delete');
     });
 
     // Role Management Routes (Super Admin Only)
     Route::prefix('admin/roles')->middleware('super_admin')->group(function () {
         Route::get('/', [RoleController::class, 'index']);
-        Route::post('/', [RoleController::class, 'store']);
+        Route::post('/', [RoleController::class, 'store'])
+          ->middleware('permission:roles.create');
         Route::get('/{role}', [RoleController::class, 'show']);
-        Route::put('/{role}', [RoleController::class, 'update']);
-        Route::delete('/{role}', [RoleController::class, 'destroy']);
+        Route::put('/{role}', [RoleController::class, 'update'])
+          ->middleware('permission:roles.update');
+        Route::delete('/{role}', [RoleController::class, 'destroy'])
+          ->middleware('permission:roles.delete');
         Route::post('/{role}/sync-permissions', [RoleController::class, 'syncPermissions'])
             ->middleware('permission:permissions.assign');;
     });
+
 
     // Get all organizations + owners + restaurant counts
     Route::get('/organizations', [OrganizationController::class, 'index']);
@@ -79,6 +86,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Get invitations list
     Route::get('/invitations', [OrganizationController::class, 'getInvitations']);
-    Route::post('/invitations/send', [RegistrationController::class, 'sendInvite']);
-    Route::post('/invitations/resend', [RegistrationController::class, 'resendInvite']);
+    Route::post('/invitations/send', [RegistrationController::class, 'sendInvite'])
+        ->middleware('permission:invitations.send');
+    Route::post('/invitations/resend', [RegistrationController::class, 'resendInvite'])
+        ->middleware('permission:invitations.send');
 });

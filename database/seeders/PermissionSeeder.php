@@ -10,16 +10,36 @@ class PermissionSeeder extends Seeder
     public function run(): void
     {
         $permissions = [
-  // Permissions
-                [
-                'name' => 'Assign Permissions',
-                'slug' => 'permissions.assign',
-                'group' => 'permissions',
-                'description' => 'Assign permissions to roles',
-            ],
-            
 
-              // Roles
+
+            //   super admin permissions 
+            // permissions
+            [
+                'name' => 'View Permission',
+                'slug' => 'permission.view',
+                'group' => 'permission',
+                'description' => 'View permission',
+            ],
+            [
+                'name' => 'Create Permission',
+                'slug' => 'permission.create',
+                'group' => 'permission',
+                'description' => 'Create permission',
+            ],
+            [
+                'name' => 'Update Permission',
+                'slug' => 'permission.update',
+                'group' => 'permission',
+                'description' => 'Update permission',
+            ],
+            [
+                'name' => 'Delete Permission',
+                'slug' => 'permission.delete',
+                'group' => 'permission',
+                'description' => 'Delete permission',
+            ],
+
+            // Roles
             [
                 'name' => 'View Roles',
                 'slug' => 'roles.view',
@@ -45,7 +65,21 @@ class PermissionSeeder extends Seeder
                 'description' => 'Delete roles',
             ],
 
-            
+
+            [
+                'name' => 'Assign Permissions',
+                'slug' => 'permissions.assign',
+                'group' => 'permissions',
+                'description' => 'Assign permissions to roles',
+            ],
+            [
+                'name' => 'Send Invitations',
+                'slug' => 'invitations.send',
+                'group' => 'invitations',
+                'description' => 'Send invitations to users',
+            ],
+
+
             // Restaurants
             [
                 'name' => 'View Restaurant',
@@ -86,10 +120,10 @@ class PermissionSeeder extends Seeder
                 'description' => 'Delete restaurant users',
             ],
 
-          
-      
-    
-                        // Tables
+
+
+
+            // Tables
             [
                 'name' => 'View Tables',
                 'slug' => 'tables.view',
@@ -142,7 +176,7 @@ class PermissionSeeder extends Seeder
                 'group' => 'menu',
                 'description' => 'Delete menu items',
             ],
-            
+
 
             // Orders
             [
@@ -169,7 +203,7 @@ class PermissionSeeder extends Seeder
                 'group' => 'orders',
                 'description' => 'Cancel orders',
             ],
-              [
+            [
                 'name' => 'Update Order Status',
                 'slug' => 'orders.update_status',
                 'group' => 'orders',
