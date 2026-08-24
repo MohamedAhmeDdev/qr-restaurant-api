@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Organizations;
 use App\Models\Invitation;
+use App\Models\Organizations;
 use Illuminate\Http\Request;
 
 class OrganizationController extends Controller
@@ -57,7 +57,6 @@ class OrganizationController extends Controller
      */
     public function getInvitations(Request $request)
     {
-        // Fetches all invitations with optional status filter (e.g. ?status=pending)
         $query = Invitation::with([
             'organization:id,name',
             'restaurant:id,name',

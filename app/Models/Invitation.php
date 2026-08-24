@@ -10,8 +10,8 @@ class Invitation extends Model
 {
     protected $fillable = [
         'email',
-        'organizations_id',
-        'restaurant_id', // Add this if invitations can target specific restaurants
+        'organization_id',
+        'restaurant_id',
         'role_id',
         'token',
         'invited_by',
@@ -24,44 +24,44 @@ class Invitation extends Model
         'expires_at' => 'datetime',
     ];
 
-    // Append virtual 'status' attribute automatically in array/JSON responses
+    // Append virtual 'status' attribute automatically in JSON/Array representations
     protected $appends = ['status'];
 
     /**
-     * Relationship to Organization (Singular casing for standard Laravel conventions)
+     * Relationship to Organization
      */
     public function organization(): BelongsTo
     {
-        return $this->belongsTo(Organizations::class, 'organizations_id');
+        return $this->belongsTo(Organizations::class, 'organization_id');
     }
 
     /**
-     * Relationship to Restaurant (Optional depending on schema)
+     * Relationship to Restaurant
      */
     public function restaurant(): BelongsTo
     {
         return $this->belongsTo(Restaurant::class);
     }
 
+    /**
+     * Relationship to Role assigned in invitation
+     */
     public function role(): BelongsTo
     {
         return $this->belongsTo(Role::class);
     }
 
-    public function inviter(): BelongsTo
+    /**
+     * Relationship to the User who sent the invite
+     */
+    public function invitedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'invited_by');
     }
 
-    // Add this inside App\Models\Invitation
-
-public function invitedBy(): BelongsTo
-{
-    return $this->belongsTo(User::class, 'invited_by');
-}
-
-
-
+    /**
+     * Virtual computed 'status' attribute: accepted | expired | pending
+     */
     protected function status(): Attribute
     {
         return Attribute::make(

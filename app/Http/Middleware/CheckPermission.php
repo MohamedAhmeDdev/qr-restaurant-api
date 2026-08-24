@@ -23,8 +23,10 @@ class CheckPermission
             ], 401);
         }
 
+        $userRole = $user->roles()->first()?->slug;
+
         // Super admins automatically bypass permission checks
-        if ($user->is_super_admin) {
+        if ($userRole === 'super_admin') {
             return $next($request);
         }
 

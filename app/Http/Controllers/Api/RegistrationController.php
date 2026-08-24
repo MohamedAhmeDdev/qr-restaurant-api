@@ -6,24 +6,23 @@ use App\Http\Controllers\Controller;
 use App\Models\Invitation;
 use App\Models\Organizations;
 use App\Models\Restaurant;
+use App\Models\Role;
 use App\Models\User;
 use App\Notifications\RestaurantOwnerInvitedNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Str;
 
 class RegistrationController extends Controller
 {
-   
- /**
+    /**
      * Send Invitation Token to New Organization Owner (Expires in 1 Hour)
      */
     public function sendInvite(Request $request)
     {
-        // 1. Authorize super admin access
-        if (! $request->user() || ! $request->user()->is_super_admin) {
+        // 1. Authorize super admin access via dynamic user role
+        if (! $request->user() || $request->user()->roles()->first()?->slug !== 'super_admin') {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Unauthorized. Super Admin permissions required.',
@@ -48,13 +47,13 @@ class RegistrationController extends Controller
             ], 422);
         }
 
-        // 4. Cleanup expired, unaccepted invitations for this email before creating a new one
+        // 4. Cleanup expired, unaccepted invitations before creating a new one
         Invitation::where('email', $validated['email'])
             ->whereNull('accepted_at')
             ->where('expires_at', '<=', now())
             ->delete();
 
-        // 5. Generate secure token & set 1-hour expiration date
+        // 5. Generate secure token & set 1-hour expiration
         $token = Str::random(40);
         $expiresAt = now()->addHour();
 
@@ -84,8 +83,8 @@ class RegistrationController extends Controller
      */
     public function resendInvite(Request $request)
     {
-        // 1. Authorize super admin access
-        if (! $request->user() || ! $request->user()->is_super_admin) {
+        // 1. Authorize super admin access via dynamic user role
+        if (! $request->user() || $request->user()->roles()->first()?->slug !== 'super_admin') {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Unauthorized. Super Admin permissions required.',
@@ -161,7 +160,7 @@ class RegistrationController extends Controller
         ]);
     }
 
-    /**
+ /**
      * Complete Owner Registration, Organization Creation & First Restaurant Setup
      */
     public function register(Request $request)
@@ -187,19 +186,29 @@ class RegistrationController extends Controller
             ], 400);
         }
 
-        // 2. Perform Atomic Creation (User + Organization + Restaurant)
+        // 2. Perform Atomic Creation (User + Role + Organization + Restaurant)
         $session = DB::transaction(function () use ($validated, $invitation) {
+            if (Restaurant::where('name', $validated['restaurant_name'])->exists()) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'restaurant_name' => ['A restaurant with this name already exists.']
+                ]);
+            }
+
             // Create user account
             $user = User::create([
                 'name' => $validated['name'],
                 'email' => $invitation->email,
-               'password' => $validated['password'],
-                'is_super_admin' => false,
+                'password' => $validated['password'],
             ]);
+
+            // Fetch existing role only
+            $adminRole = Role::where('slug', 'restaurant_admin')->firstOrFail();
+            $user->roles()->attach($adminRole->id);
 
             // Generate unique slug for Organization
             $orgSlug = $this->generateUniqueSlug(Organizations::class, $validated['organization_name']);
 
+            // Organization links directly to user via owner_id
             $organization = Organizations::create([
                 'name' => $validated['organization_name'],
                 'slug' => $orgSlug,
@@ -210,7 +219,8 @@ class RegistrationController extends Controller
             // Generate unique slug for Restaurant
             $restaurantSlug = $this->generateUniqueSlug(Restaurant::class, $validated['restaurant_name']);
 
-            // Create primary restaurant using 'slug' field
+            // Create primary restaurant under organization
+            // Note: Restaurant Admin is NOT attached to restaurant_user pivot table
             $restaurant = $organization->restaurants()->create([
                 'name' => $validated['restaurant_name'],
                 'slug' => $restaurantSlug,
@@ -224,6 +234,7 @@ class RegistrationController extends Controller
 
             return [
                 'user' => $user,
+                'role' => $adminRole->slug,
                 'organization' => $organization,
                 'restaurant' => $restaurant,
                 'token' => $token,
@@ -238,13 +249,12 @@ class RegistrationController extends Controller
                     'id' => $session['user']->id,
                     'name' => $session['user']->name,
                     'email' => $session['user']->email,
-                    // 'is_super_admin' => false,
+                    'role' => $session['role'],
                 ],
                 'token' => $session['token'],
             ],
         ], 201);
     }
-
     /**
      * Helper to generate a unique slug for any Eloquent model.
      */
