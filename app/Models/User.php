@@ -49,7 +49,7 @@ class User extends Authenticatable
      */
     public function ownedRestaurants(): HasManyThrough
     {
-        return $this->hasManyThrough(Restaurant::class, Organizations::class, 'owner_id', 'organizations_id');
+        return $this->hasManyThrough(Restaurant::class, Organizations::class, 'owner_id', 'organization_id');
     }
 
     /**

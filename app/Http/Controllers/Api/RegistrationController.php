@@ -187,8 +187,14 @@ class RegistrationController extends Controller
             ], 400);
         }
 
-        // 2. Perform Atomic Creation (User + Organization + Restaurant)
+       // 2. Perform Atomic Creation (User + Organization + Restaurant)
         $session = DB::transaction(function () use ($validated, $invitation) {
+            // Check globally if a restaurant with this name already exists
+            if (Restaurant::where('name', $validated['restaurant_name'])->exists()) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'restaurant_name' => ['A restaurant with this name already exists.']
+                ]);
+            }
             // Create user account
             $user = User::create([
                 'name' => $validated['name'],
@@ -210,7 +216,7 @@ class RegistrationController extends Controller
             // Generate unique slug for Restaurant
             $restaurantSlug = $this->generateUniqueSlug(Restaurant::class, $validated['restaurant_name']);
 
-            // Create primary restaurant using 'slug' field
+            // Create primary restaurant
             $restaurant = $organization->restaurants()->create([
                 'name' => $validated['restaurant_name'],
                 'slug' => $restaurantSlug,
@@ -238,7 +244,7 @@ class RegistrationController extends Controller
                     'id' => $session['user']->id,
                     'name' => $session['user']->name,
                     'email' => $session['user']->email,
-                    // 'is_super_admin' => false,
+                'is_super_admin' => false,
                 ],
                 'token' => $session['token'],
             ],
