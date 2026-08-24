@@ -12,8 +12,8 @@ class EnsureSuperAdmin
     {
         $user = $request->user();
 
-        // Check if user exists and is_super_admin boolean is true
-        if (! $user || ! $user->is_super_admin) {
+        // Check if user exists and has the 'super_admin' role slug
+        if (! $user || $user->roles()->first()?->slug !== 'super_admin') {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Forbidden. Super Admin access required.'
