@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\RegistrationController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\OrganizationController;
+use App\Http\Controllers\Api\RestaurantController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -43,8 +44,6 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
 
-
-
     /*
     |--------------------------------------------------------------------------
         Super Admin APIs
@@ -77,8 +76,6 @@ Route::middleware('auth:sanctum')->group(function () {
             ->middleware('permission:permissions.assign');
     });
 
-  
-
     // Get all organizations + owners + restaurant counts
     Route::get('/organizations', [OrganizationController::class, 'index']);
 
@@ -92,4 +89,36 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:invitations.send');
     Route::post('/invitations/resend', [RegistrationController::class, 'resendInvite'])
         ->middleware('permission:invitations.send');
+
+
+
+
+Route::get('/restaurants', [RestaurantController::class, 'index'])
+ ->middleware('permission:restaurant.view');
+    Route::post('/restaurants', [RestaurantController::class, 'store'])
+     ->middleware('permission:restaurant.create');
+    Route::get('/restaurants/{id}', [RestaurantController::class, 'show'])
+        ->middleware('permission:restaurant.view');
+    Route::post('/restaurants/{id}', [RestaurantController::class, 'update'])
+          ->middleware('permission:restaurant.update');
+    Route::delete('/restaurants/{id}', [RestaurantController::class, 'destroy'])
+        ->middleware('permission:restaurant.delete');
+    Route::post('/restaurants/{id}/restore', [RestaurantController::class, 'restore'])
+        ->middleware('permission:restaurant.restore');
+    Route::delete('/restaurants/{id}/force', [RestaurantController::class, 'forceDelete'])
+        ->middleware('permission:restaurant.force_delete');
+
+
+/*
+--------------------------------------------------------------------------
+    | Active Workspace-Scoped Endpoints (Requires X-Restaurant-Slug Header)
+    |--------------------------------------------------------------------------
+    */
+    Route::middleware(['restaurant.access'])->group(function () {
+
+
+    });
 });
+
+
+

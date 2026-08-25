@@ -171,6 +171,7 @@ class RegistrationController extends Controller
             'password' => 'required|string|min:8|confirmed',
             'organization_name' => 'required|string|max:255|unique:organizations,name',
             'restaurant_name' => 'required|string|max:255',
+            'status' => 'nullable|string|in:active,suspended',
         ]);
 
         // 1. Verify invitation token
@@ -224,7 +225,7 @@ class RegistrationController extends Controller
             $restaurant = $organization->restaurants()->create([
                 'name' => $validated['restaurant_name'],
                 'slug' => $restaurantSlug,
-                'is_active' => true,
+                'status' => $validated['status'] ?? 'active',
             ]);
 
             // Mark invitation as consumed

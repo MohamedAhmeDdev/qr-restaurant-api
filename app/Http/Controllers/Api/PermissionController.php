@@ -167,29 +167,36 @@ class PermissionController extends Controller
     /**
      * Helper method to generate dot-notation slug with collision handling.
      */
-    private function generateSlug(string $name, ?string $group = null, ?int $ignoreId = null): string
-    {
-        $actionSegment = Str::slug($name);
+private function generateSlug(string $name, ?string $group = null, ?int $ignoreId = null): string
+{
+    $actionSegment = Str::slug($name);
 
-        if (!empty($group)) {
-            $groupSegment = Str::slug($group);
-            $baseSlug = "{$groupSegment}.{$actionSegment}";
-        } else {
-            $baseSlug = $actionSegment;
-        }
+    if (!empty($group)) {
+        $groupSegment = Str::slug($group);
 
-        $slug = $baseSlug;
-        $count = 1;
+        // Remove group name or its singular version from the action segment if present
+        // Example: "view-restaurant" with group "restaurants" becomes "view"
+        $singularGroup = Str::singular($groupSegment);
+        $actionSegment = str_replace([$groupSegment, $singularGroup], '', $actionSegment);
+        $actionSegment = trim($actionSegment, '-'); // Clean up leftover hyphens
 
-        while (
-            Permission::where('slug', $slug)
-                ->when($ignoreId, fn($query) => $query->where('id', '!=', $ignoreId))
-                ->exists()
-        ) {
-            $slug = "{$baseSlug}.{$count}";
-            $count++;
-        }
-
-        return $slug;
+        $baseSlug = "{$groupSegment}.{$actionSegment}";
+    } else {
+        $baseSlug = $actionSegment;
     }
+
+    $slug = $baseSlug;
+    $count = 1;
+
+    while (
+        Permission::where('slug', $slug)
+            ->when($ignoreId, fn($query) => $query->where('id', '!=', $ignoreId))
+            ->exists()
+    ) {
+        $slug = "{$baseSlug}-{$count}";
+        $count++;
+    }
+
+    return $slug;
+}
 }

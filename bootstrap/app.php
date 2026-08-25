@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\CheckPermission;
+use App\Http\Middleware\EnsureRestaurantAccess;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\SetActiveRestaurant;
 use Illuminate\Foundation\Application;
@@ -19,7 +20,7 @@ return Application::configure(basePath: dirname(__DIR__))
        $middleware->alias([
         'super_admin' => EnsureSuperAdmin::class,
         'permission'  => CheckPermission::class,
-        'active.restaurant' => SetActiveRestaurant::class,
+       'restaurant.access' => EnsureRestaurantAccess::class,
     ]);
 
 

@@ -8,10 +8,6 @@ use Symfony\Component\HttpFoundation\Response;
 
 class CheckPermission
 {
-    /**
-     * Handle an incoming request.
-     * Check if the authenticated user has any of the specified permissions.
-     */
     public function handle(Request $request, Closure $next, string ...$permissions): Response
     {
         $user = $request->user();
@@ -23,27 +19,28 @@ class CheckPermission
             ], 401);
         }
 
-        $userRole = $user->roles()->first()?->slug;
+        // Eager-load roles and permissions once to prevent N+1 queries
+        $user->loadMissing('roles.permissions');
 
-        // Super admins automatically bypass permission checks
-        if ($userRole === 'super_admin') {
+        // Super admins bypass all permission checks
+        if ($user->roles->contains('slug', 'super_admin')) {
             return $next($request);
         }
 
-        // Check if user has a role with any of the required permission slugs
-        if (! empty($permissions)) {
-            $hasPermission = $user->roles()
-                ->whereHas('permissions', function ($query) use ($permissions) {
-                    $query->whereIn('slug', $permissions);
-                })
-                ->exists();
+        if (empty($permissions)) {
+            return $next($request);
+        }
 
-            if (! $hasPermission) {
-                return response()->json([
-                    'status' => 'error',
-                    'message' => 'Forbidden. You do not have permission to perform this action.',
-                ], 403);
-            }
+        // Check against pre-loaded collections in memory
+        $hasPermission = $user->roles->pluck('permissions')->flatten()->contains(function ($permission) use ($permissions) {
+            return in_array($permission->slug, $permissions, true);
+        });
+
+        if (! $hasPermission) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Forbidden. You do not have permission to perform this action.',
+            ], 403);
         }
 
         return $next($request);

@@ -83,16 +83,41 @@ class PermissionSeeder extends Seeder
             // Restaurants
             [
                 'name' => 'View Restaurant',
-                'slug' => 'restaurants.view',
+                'slug' => 'restaurant.view',
                 'group' => 'restaurants',
                 'description' => 'View restaurant information',
             ],
+             [
+                'name' => 'Create Restaurant',
+                'slug' => 'restaurant.create',
+                'group' => 'restaurants',
+                'description' => 'Create restaurant information',
+            ],
             [
                 'name' => 'Update Restaurant',
-                'slug' => 'restaurants.update',
+                'slug' => 'restaurant.update',
                 'group' => 'restaurants',
                 'description' => 'Update restaurant information',
             ],
+             [
+                'name' => 'Delete Restaurant',
+                'slug' => 'restaurant.delete',
+                'group' => 'restaurants',
+                'description' => 'Delete restaurant information',
+            ],
+             [
+                'name' => 'Restore Restaurant',
+                'slug' => 'restaurant.restore',
+                'group' => 'restaurants',
+                'description' => 'Restore restaurant information',
+            ],
+             [
+                'name' => 'Force delete Restaurant',
+                'slug' => 'restaurant.force_delete',
+                'group' => 'restaurants',
+                'description' => 'Force delete restaurant information',
+            ],  
+
 
             // Users
             [
