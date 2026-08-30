@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Role;
 use App\Models\Staff;
 use App\Models\User;
+use App\Notifications\StaffWelcomeNotification;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -13,9 +14,6 @@ use Illuminate\Support\Str;
 
 class StaffController extends Controller
 {
-    /**
-     * Helper to resolve a single Role model instance by ID, slug, or name.
-     */
     private function resolveRole(mixed $roleInput): ?Role
     {
         if (empty($roleInput)) {
@@ -31,9 +29,6 @@ class StaffController extends Controller
         })->first();
     }
 
-    /**
-     * Helper to standardize staff user response payload with single role.
-     */
     private function formatStaffResponse(User $user): array
     {
         $assignedPivot = $user->assignedRestaurants->first()?->pivot;
@@ -53,99 +48,87 @@ class StaffController extends Controller
         ];
     }
 
-    /**
-     * List staff assigned to the CURRENT restaurant only.
-     */
-public function index(Request $request)
-{
-    $restaurant = $request->get('restaurant');
+    public function index(Request $request)
+    {
+        $restaurant = $request->get('restaurant');
 
-    // Base query scoped to non-deleted staff at the current restaurant
-    $baseStaffQuery = Staff::where('restaurant_id', $restaurant->id)
-        ->whereNull('deleted_at');
+        $baseStaffQuery = Staff::where('restaurant_id', $restaurant->id)
+            ->whereNull('deleted_at');
 
-    // Aggregate statistics
-    $stats = [
-        'total'  => (clone $baseStaffQuery)->count(),
-        'active' => (clone $baseStaffQuery)->where('status', 'active')->count(),
-    ];
+        $stats = [
+            'total'  => (clone $baseStaffQuery)->count(),
+            'active' => (clone $baseStaffQuery)->where('status', 'active')->count(),
+        ];
 
-    $query = User::select(['users.id', 'users.name', 'users.email'])
-        ->with([
-            'roles:roles.id,roles.name,roles.slug',
-            'assignedRestaurants' => fn ($q) => $q->where('restaurants.id', $restaurant->id)
-        ])
-        ->whereHas('assignedRestaurants', function ($q) use ($restaurant, $request) {
-            $q->where('restaurants.id', $restaurant->id);
+        $query = User::select(['users.id', 'users.name', 'users.email'])
+            ->with([
+                'roles:roles.id,roles.name,roles.slug',
+                'assignedRestaurants' => fn ($q) => $q->where('restaurants.id', $restaurant->id)
+            ])
+            ->whereHas('assignedRestaurants', function ($q) use ($restaurant, $request) {
+                $q->where('restaurants.id', $restaurant->id);
 
-            if ($request->boolean('only_trashed')) {
-                $q->whereNotNull('staff.deleted_at');
-            } elseif (! $request->boolean('with_trashed')) {
-                $q->whereNull('staff.deleted_at');
-            }
-        });
-
-    // Search Name/Email
-    $query->when($request->filled('search'), function ($q) use ($request) {
-        $search = $request->search;
-        $q->where(function ($sub) use ($search) {
-            $sub->where('name', 'like', "%{$search}%")
-                ->orWhere('email', 'like', "%{$search}%");
-        });
-    });
-
-    // Role Filter
-    $query->when($request->filled('role_id'), function ($q) use ($request) {
-        $roleInput = $request->role_id;
-        $q->whereHas('roles', function ($r) use ($roleInput) {
-            $r->where(function ($sub) use ($roleInput) {
-                if (is_numeric($roleInput)) {
-                    $sub->where('roles.id', (int) $roleInput);
+                if ($request->boolean('only_trashed')) {
+                    $q->whereNotNull('staff.deleted_at');
+                } elseif (! $request->boolean('with_trashed')) {
+                    $q->whereNull('staff.deleted_at');
                 }
-                $sub->orWhere('roles.slug', strtolower((string) $roleInput))
-                    ->orWhere('roles.name', (string) $roleInput);
+            });
+
+        $query->when($request->filled('search'), function ($q) use ($request) {
+            $search = $request->search;
+            $q->where(function ($sub) use ($search) {
+                $sub->where('name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%");
             });
         });
-    });
 
-    // Status Filter
-    $query->when($request->filled('status'), function ($q) use ($restaurant, $request) {
-        $q->whereHas('assignedRestaurants', fn ($r) => $r
-            ->where('restaurants.id', $restaurant->id)
-            ->where('staff.status', $request->status));
-    });
+        $query->when($request->filled('role_id'), function ($q) use ($request) {
+            $roleInput = $request->role_id;
+            $q->whereHas('roles', function ($r) use ($roleInput) {
+                $r->where(function ($sub) use ($roleInput) {
+                    if (is_numeric($roleInput)) {
+                        $sub->where('roles.id', (int) $roleInput);
+                    }
+                    $sub->orWhere('roles.slug', strtolower((string) $roleInput))
+                        ->orWhere('roles.name', (string) $roleInput);
+                });
+            });
+        });
 
-    // Shift Type Filter
-    $query->when($request->filled('shift_type'), function ($q) use ($restaurant, $request) {
-        $q->whereHas('assignedRestaurants', fn ($r) => $r
-            ->where('restaurants.id', $restaurant->id)
-            ->where('staff.shift_type', $request->shift_type));
-    });
+        $query->when($request->filled('status'), function ($q) use ($restaurant, $request) {
+            $q->whereHas('assignedRestaurants', fn ($r) => $r
+                ->where('restaurants.id', $restaurant->id)
+                ->where('staff.status', $request->status));
+        });
 
-    $perPage = $request->integer('per_page', 15);
-    $paginator = $query->latest('users.created_at')
-        ->paginate($perPage)
-        ->through(fn ($user) => $this->formatStaffResponse($user));
+        $query->when($request->filled('shift_type'), function ($q) use ($restaurant, $request) {
+            $q->whereHas('assignedRestaurants', fn ($r) => $r
+                ->where('restaurants.id', $restaurant->id)
+                ->where('staff.shift_type', $request->shift_type));
+        });
 
-    return response()->json([
-        'status'     => 'success',
-        'stats'      => $stats,
-        'data'       => $paginator->items(),
-        'pagination' => [
-            'total'          => $paginator->total(),
-            'per_page'       => $paginator->perPage(),
-            'current_page'   => $paginator->currentPage(),
-            'last_page'      => $paginator->lastPage(),
-            'from'           => $paginator->firstItem(),
-            'to'             => $paginator->lastItem(),
-            'has_more_pages' => $paginator->hasMorePages(),
-        ],
-    ]);
-}
+        $perPage = $request->integer('per_page', 15);
+        $paginator = $query->latest('users.created_at')
+            ->paginate($perPage)
+            ->through(fn ($user) => $this->formatStaffResponse($user));
 
-    /**
-     * Create a user (or find existing) and assign them to the CURRENT restaurant.
-     */
+        return response()->json([
+            'status'     => 'success',
+            'stats'      => $stats,
+            'data'       => $paginator->items(),
+            'pagination' => [
+                'total'          => $paginator->total(),
+                'per_page'       => $paginator->perPage(),
+                'current_page'   => $paginator->currentPage(),
+                'last_page'      => $paginator->lastPage(),
+                'from'           => $paginator->firstItem(),
+                'to'             => $paginator->lastItem(),
+                'has_more_pages' => $paginator->hasMorePages(),
+            ],
+        ]);
+    }
+
     public function store(Request $request)
     {
         $restaurant = $request->get('restaurant');
@@ -161,11 +144,13 @@ public function index(Request $request)
         ]);
 
         return DB::transaction(function () use ($validated, $restaurant) {
+            $plainPassword = $validated['password'] ?? Str::random(12);
+
             $user = User::firstOrCreate(
                 ['email' => $validated['email']],
                 [
                     'name'     => $validated['name'],
-                    'password' => Hash::make($validated['password'] ?? Str::random(12)),
+                    'password' => Hash::make($plainPassword),
                 ]
             );
 
@@ -173,7 +158,7 @@ public function index(Request $request)
                 $user->update(['name' => $validated['name']]);
             }
 
-            // 1. Resolve & Sync Role
+            // Resolve & Sync Role
             $roleInput = $validated['role_id'] ?? $validated['role'] ?? null;
             $role = $this->resolveRole($roleInput);
 
@@ -181,7 +166,7 @@ public function index(Request $request)
                 $user->roles()->sync([$role->id]);
             }
 
-            // 2. Attach or Update Pivot
+            // Attach or Update Pivot
             $pivot = Staff::withTrashed()
                 ->where('user_id', $user->id)
                 ->where('restaurant_id', $restaurant->id)
@@ -207,6 +192,8 @@ public function index(Request $request)
                 ]);
             }
 
+            $user->notify(new StaffWelcomeNotification($plainPassword, $restaurant));
+
             $user->load([
                 'roles:roles.id,roles.name,roles.slug',
                 'assignedRestaurants' => fn ($q) => $q->where('restaurants.id', $restaurant->id)
@@ -214,15 +201,12 @@ public function index(Request $request)
 
             return response()->json([
                 'status'  => 'success',
-                'message' => 'Staff member created and assigned successfully.',
+                'message' => 'Staff member created, assigned, and notified successfully.',
                 'data'    => $this->formatStaffResponse($user),
             ], 201);
         });
     }
 
-    /**
-     * Show single staff details (scoped to current workspace).
-     */
     public function show(Request $request, $id)
     {
         $restaurant = $request->get('restaurant');
@@ -244,9 +228,6 @@ public function index(Request $request)
         ]);
     }
 
-    /**
-     * Update staff details in current restaurant workspace.
-     */
     public function update(Request $request, $id)
     {
         $restaurant = $request->get('restaurant');
@@ -274,7 +255,6 @@ public function index(Request $request)
                 $staff->update($userUpdates);
             }
 
-            // 1. Resolve & Sync Role (if passed)
             $roleInput = $validated['role_id'] ?? $validated['role'] ?? null;
             if ($roleInput) {
                 $role = $this->resolveRole($roleInput);
@@ -283,7 +263,6 @@ public function index(Request $request)
                 }
             }
 
-            // 2. Update Pivot fields
             $pivotUpdates = array_filter([
                 'status'     => $validated['status'] ?? null,
                 'shift_type' => $validated['shift_type'] ?? null,
@@ -308,16 +287,22 @@ public function index(Request $request)
         });
     }
 
-    /**
-     * Soft delete staff from CURRENT restaurant workspace.
-     */
     public function destroy(Request $request, $id)
     {
         $restaurant = $request->get('restaurant');
 
-        Staff::where('user_id', $id)
+        $staff = Staff::where('user_id', $id)
             ->where('restaurant_id', $restaurant->id)
-            ->delete();
+            ->first();
+
+        if (! $staff) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Staff member not found in this restaurant.',
+            ], 404);
+        }
+
+        $staff->delete();
 
         return response()->json([
             'status'  => 'success',
@@ -325,17 +310,23 @@ public function index(Request $request)
         ]);
     }
 
-    /**
-     * Restore soft-deleted staff in CURRENT restaurant workspace.
-     */
     public function restore(Request $request, $id)
     {
         $restaurant = $request->get('restaurant');
 
-        Staff::onlyTrashed()
+        $staff = Staff::onlyTrashed()
             ->where('user_id', $id)
             ->where('restaurant_id', $restaurant->id)
-            ->restore();
+            ->first();
+
+        if (! $staff) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Trashed staff member not found.',
+            ], 404);
+        }
+
+        $staff->restore();
 
         return response()->json([
             'status'  => 'success',
@@ -343,17 +334,23 @@ public function index(Request $request)
         ]);
     }
 
-    /**
-     * Permanently remove staff from CURRENT restaurant workspace.
-     */
     public function forceDelete(Request $request, $id)
     {
         $restaurant = $request->get('restaurant');
 
-        Staff::withTrashed()
+        $staff = Staff::withTrashed()
             ->where('user_id', $id)
             ->where('restaurant_id', $restaurant->id)
-            ->forceDelete();
+            ->first();
+
+        if (! $staff) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Staff member not found.',
+            ], 404);
+        }
+
+        $staff->forceDelete();
 
         return response()->json([
             'status'  => 'success',

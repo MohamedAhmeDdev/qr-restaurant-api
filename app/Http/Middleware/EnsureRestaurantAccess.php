@@ -23,7 +23,6 @@ class EnsureRestaurantAccess
             ], 401);
         }
 
-        // 1. Extract active workspace header
         $slug = $request->header('X-Restaurant-Slug');
 
         if (! $slug) {
@@ -33,7 +32,6 @@ class EnsureRestaurantAccess
             ], 400);
         }
 
-        // 2. Fetch active restaurant workspace
         $restaurant = Restaurant::withTrashed()->where('slug', $slug)->first();
 
         if (! $restaurant) {
@@ -43,25 +41,32 @@ class EnsureRestaurantAccess
             ], 404);
         }
 
-        // 3. Check Organization Ownership
+        // Block access to trashed restaurants for active workspace endpoints
+        if ($restaurant->trashed()) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Restaurant workspace is inactive or deleted.',
+            ], 410);
+        }
+
+        // Organization Ownership
         $ownedOrg = $user->ownedOrganizations()->first();
         if ($ownedOrg && $restaurant->organization_id === $ownedOrg->id) {
-            $request->merge(['restaurant' => $restaurant]);
+            $request->attributes->set('restaurant', $restaurant);
             return $next($request);
         }
 
-        // 4. Check Assigned Staff via Pivot
+        // Assigned Staff via Pivot
         $isAssigned = $user->assignedRestaurants()
             ->where('restaurants.id', $restaurant->id)
             ->whereNull('staff.deleted_at')
             ->exists();
 
         if ($isAssigned) {
-            $request->merge(['restaurant' => $restaurant]);
+            $request->attributes->set('restaurant', $restaurant);
             return $next($request);
         }
 
-        // 5. Access Denied
         return response()->json([
             'status' => 'error',
             'message' => 'Forbidden. You do not have access to this restaurant workspace.',
