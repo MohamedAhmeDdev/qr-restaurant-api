@@ -23,8 +23,11 @@ class Restaurant extends Model
         return $this->belongsTo(Organizations::class, 'organization_id');
     }
 
-    public function users(): BelongsToMany
-    {
-        return $this->belongsToMany(User::class, 'restaurant_user')->withTimestamps();
-    }
+
+public function users(): BelongsToMany
+{
+    return $this->belongsToMany(User::class, 'staff')
+                ->withPivot('status', 'shift_type')
+                ->withTimestamps();
+}
 }

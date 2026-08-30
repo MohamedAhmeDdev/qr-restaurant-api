@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\RegistrationController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\OrganizationController;
 use App\Http\Controllers\Api\RestaurantController;
+use App\Http\Controllers\Api\StaffController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -42,7 +43,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/verify', [AuthController::class, 'verify']);
     Route::post('/logout', [AuthController::class, 'logout']);
 
-
+    Route::get('/roles/options', [RoleController::class, 'options']);
 
     /*
     |--------------------------------------------------------------------------
@@ -109,6 +110,13 @@ Route::get('/restaurants', [RestaurantController::class, 'index'])
         ->middleware('permission:restaurant.force_delete');
 
 
+
+
+
+
+
+
+
 /*
 --------------------------------------------------------------------------
     | Active Workspace-Scoped Endpoints (Requires X-Restaurant-Slug Header)
@@ -116,7 +124,15 @@ Route::get('/restaurants', [RestaurantController::class, 'index'])
     */
     Route::middleware(['restaurant.access'])->group(function () {
 
-
+    
+    // Staff Management Endpoints
+    Route::get('/staff', [StaffController::class, 'index']);
+    Route::post('/staff', [StaffController::class, 'store']);
+    Route::get('/staff/{id}', [StaffController::class, 'show']);
+    Route::put('/staff/{id}', [StaffController::class, 'update']);
+    Route::delete('/staff/{id}', [StaffController::class, 'destroy']);
+    Route::post('/staff/{id}/restore', [StaffController::class, 'restore']);
+    Route::delete('/staff/{id}/force', [StaffController::class, 'forceDelete']);
     });
 });
 
