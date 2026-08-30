@@ -43,24 +43,25 @@ class EnsureRestaurantAccess
             ], 404);
         }
 
-        // 3. Check Organization Ownership (User owns the organization that owns this restaurant)
+        // 3. Check Organization Ownership
         $ownedOrg = $user->ownedOrganizations()->first();
         if ($ownedOrg && $restaurant->organization_id === $ownedOrg->id) {
-            $request->attributes->set('restaurant', $restaurant);
+            $request->merge(['restaurant' => $restaurant]);
             return $next($request);
         }
 
-        // 4. Check Assigned Staff via Pivot (User is explicitly assigned to this restaurant)
+        // 4. Check Assigned Staff via Pivot
         $isAssigned = $user->assignedRestaurants()
             ->where('restaurants.id', $restaurant->id)
+            ->whereNull('staff.deleted_at')
             ->exists();
 
         if ($isAssigned) {
-            $request->attributes->set('restaurant', $restaurant);
+            $request->merge(['restaurant' => $restaurant]);
             return $next($request);
         }
 
-        // 5. Access Denied (Super admins who don't own or belong to this workspace hit this)
+        // 5. Access Denied
         return response()->json([
             'status' => 'error',
             'message' => 'Forbidden. You do not have access to this restaurant workspace.',
