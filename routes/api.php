@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\OrganizationController;
 use App\Http\Controllers\Api\RestaurantController;
 use App\Http\Controllers\Api\StaffController;
+use App\Http\Controllers\Api\TableController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -55,26 +56,26 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/group', [PermissionController::class, 'getGroups']);
         Route::get('/', [PermissionController::class, 'index']);
         Route::post('/', [PermissionController::class, 'store'])
-         ->middleware('permission:permission.create');
+            ->middleware('permission:permission.create');
         Route::get('/{permission}', [PermissionController::class, 'show']);
         Route::put('/{permission}', [PermissionController::class, 'update'])
-             ->middleware('permission:permission.update');
+            ->middleware('permission:permission.update');
         Route::delete('/{permission}', [PermissionController::class, 'destroy'])
-             ->middleware('permission:permission.delete');
+            ->middleware('permission:permission.delete');
     });
 
     // Role Management Routes (Super Admin Only)
     Route::prefix('/roles')->middleware('super_admin')->group(function () {
         Route::get('/', [RoleController::class, 'index']);
         Route::post('/', [RoleController::class, 'store'])
-          ->middleware('permission:roles.create');
+            ->middleware('permission:role.create');
         Route::get('/{role}', [RoleController::class, 'show']);
         Route::put('/{role}', [RoleController::class, 'update'])
-          ->middleware('permission:roles.update');
+            ->middleware('permission:role.update');
         Route::delete('/{role}', [RoleController::class, 'destroy'])
-          ->middleware('permission:roles.delete');
+            ->middleware('permission:role.delete');
         Route::post('/{role}/sync-permissions', [RoleController::class, 'syncPermissions'])
-            ->middleware('permission:permissions.assign');
+            ->middleware('permission:permission.assign');
     });
 
     // Get all organizations + owners + restaurant counts
@@ -87,21 +88,21 @@ Route::middleware('auth:sanctum')->group(function () {
     // Get invitations list
     Route::get('/invitations', [OrganizationController::class, 'getInvitations']);
     Route::post('/invitations/send', [RegistrationController::class, 'sendInvite'])
-        ->middleware('permission:invitations.send');
+        ->middleware('permission:invitation.send');
     Route::post('/invitations/resend', [RegistrationController::class, 'resendInvite'])
-        ->middleware('permission:invitations.send');
+        ->middleware('permission:invitation.send');
 
 
 
 
-Route::get('/restaurants', [RestaurantController::class, 'index'])
- ->middleware('permission:restaurant.view');
+    Route::get('/restaurants', [RestaurantController::class, 'index'])
+        ->middleware('permission:restaurant.view');
     Route::post('/restaurants', [RestaurantController::class, 'store'])
-     ->middleware('permission:restaurant.create');
+        ->middleware('permission:restaurant.create');
     Route::get('/restaurants/{id}', [RestaurantController::class, 'show'])
         ->middleware('permission:restaurant.view');
     Route::post('/restaurants/{id}', [RestaurantController::class, 'update'])
-          ->middleware('permission:restaurant.update');
+        ->middleware('permission:restaurant.update');
     Route::delete('/restaurants/{id}', [RestaurantController::class, 'destroy'])
         ->middleware('permission:restaurant.delete');
     Route::post('/restaurants/{id}/restore', [RestaurantController::class, 'restore'])
@@ -117,24 +118,42 @@ Route::get('/restaurants', [RestaurantController::class, 'index'])
 
 
 
-/*
+    /*
 --------------------------------------------------------------------------
     | Active Workspace-Scoped Endpoints (Requires X-Restaurant-Slug Header)
     |--------------------------------------------------------------------------
     */
     Route::middleware(['restaurant.access'])->group(function () {
 
-    
-    // Staff Management Endpoints
-    Route::get('/staff', [StaffController::class, 'index']);
-    Route::post('/staff', [StaffController::class, 'store']);
-    Route::get('/staff/{id}', [StaffController::class, 'show']);
-    Route::put('/staff/{id}', [StaffController::class, 'update']);
-    Route::delete('/staff/{id}', [StaffController::class, 'destroy']);
-    Route::post('/staff/{id}/restore', [StaffController::class, 'restore']);
-    Route::delete('/staff/{id}/force', [StaffController::class, 'forceDelete']);
+        Route::get('/tables', [TableController::class, 'index'])
+            ->middleware('permission:table.view');
+        Route::post('/tables', [TableController::class, 'store'])
+            ->middleware('permission:table.create');
+        Route::get('/tables/{id}', [TableController::class, 'show'])
+            ->middleware('permission:table.view');
+        Route::put('/tables/{id}', [TableController::class, 'update'])
+            ->middleware('permission:table.update');
+        Route::delete('/tables/{id}', [TableController::class, 'destroy'])
+            ->middleware('permission:table.delete');
+
+        Route::post('/{id}/regenerate-qr', [TableController::class, 'regenerateQr'])
+            ->middleware('permission:table.update');
+
+
+        // Staff Management Endpoints
+        Route::get('/staff', [StaffController::class, 'index'])
+            ->middleware('permission:staff.view');
+        Route::post('/staff', [StaffController::class, 'store'])
+            ->middleware('permission:staff.create');
+        Route::get('/staff/{id}', [StaffController::class, 'show'])
+            ->middleware('permission:staff.view');
+        Route::put('/staff/{id}', [StaffController::class, 'update'])
+            ->middleware('permission:staff.update');
+        Route::delete('/staff/{id}', [StaffController::class, 'destroy'])
+            ->middleware('permission:staff.delete');
+        Route::post('/staff/{id}/restore', [StaffController::class, 'restore'])
+            ->middleware('permission:staff.restore');
+        Route::delete('/staff/{id}/force', [StaffController::class, 'forceDelete'])
+            ->middleware('permission:staff.delete');
     });
 });
-
-
-

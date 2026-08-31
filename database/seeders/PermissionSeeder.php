@@ -10,10 +10,7 @@ class PermissionSeeder extends Seeder
     public function run(): void
     {
         $permissions = [
-
-
-            //   super admin permissions 
-            // permissions
+            // Permission Management
             [
                 'name' => 'View Permission',
                 'slug' => 'permission.view',
@@ -38,145 +35,170 @@ class PermissionSeeder extends Seeder
                 'group' => 'permission',
                 'description' => 'Delete permission',
             ],
-
-            // Roles
             [
-                'name' => 'View Roles',
-                'slug' => 'roles.view',
-                'group' => 'roles',
-                'description' => 'View roles',
-            ],
-            [
-                'name' => 'Create Roles',
-                'slug' => 'roles.create',
-                'group' => 'roles',
-                'description' => 'Create roles',
-            ],
-            [
-                'name' => 'Update Roles',
-                'slug' => 'roles.update',
-                'group' => 'roles',
-                'description' => 'Update roles',
-            ],
-            [
-                'name' => 'Delete Roles',
-                'slug' => 'roles.delete',
-                'group' => 'roles',
-                'description' => 'Delete roles',
+                'name' => 'Assign Permission',
+                'slug' => 'permission.assign',
+                'group' => 'permission',
+                'description' => 'Assign permission to role',
             ],
 
-
+            // Role Management
             [
-                'name' => 'Assign Permissions',
-                'slug' => 'permissions.assign',
-                'group' => 'permissions',
-                'description' => 'Assign permissions to roles',
+                'name' => 'View Role',
+                'slug' => 'role.view',
+                'group' => 'role',
+                'description' => 'View role',
             ],
             [
-                'name' => 'Send Invitations',
-                'slug' => 'invitations.send',
-                'group' => 'invitations',
-                'description' => 'Send invitations to users',
+                'name' => 'Create Role',
+                'slug' => 'role.create',
+                'group' => 'role',
+                'description' => 'Create role',
+            ],
+            [
+                'name' => 'Update Role',
+                'slug' => 'role.update',
+                'group' => 'role',
+                'description' => 'Update role',
+            ],
+            [
+                'name' => 'Delete Role',
+                'slug' => 'role.delete',
+                'group' => 'role',
+                'description' => 'Delete role',
             ],
 
+            // Invitation Management
+            [
+                'name' => 'Send Invitation',
+                'slug' => 'invitation.send',
+                'group' => 'invitation',
+                'description' => 'Send invitation to user',
+            ],
 
-            // Restaurants
+            // Restaurant Management
             [
                 'name' => 'View Restaurant',
                 'slug' => 'restaurant.view',
-                'group' => 'restaurants',
+                'group' => 'restaurant',
                 'description' => 'View restaurant information',
             ],
-             [
+            [
                 'name' => 'Create Restaurant',
                 'slug' => 'restaurant.create',
-                'group' => 'restaurants',
+                'group' => 'restaurant',
                 'description' => 'Create restaurant information',
             ],
             [
                 'name' => 'Update Restaurant',
                 'slug' => 'restaurant.update',
-                'group' => 'restaurants',
+                'group' => 'restaurant',
                 'description' => 'Update restaurant information',
             ],
-             [
+            [
                 'name' => 'Delete Restaurant',
                 'slug' => 'restaurant.delete',
-                'group' => 'restaurants',
+                'group' => 'restaurant',
                 'description' => 'Delete restaurant information',
             ],
-             [
+            [
                 'name' => 'Restore Restaurant',
                 'slug' => 'restaurant.restore',
-                'group' => 'restaurants',
+                'group' => 'restaurant',
                 'description' => 'Restore restaurant information',
             ],
-             [
-                'name' => 'Force delete Restaurant',
+            [
+                'name' => 'Force Delete Restaurant',
                 'slug' => 'restaurant.force_delete',
-                'group' => 'restaurants',
+                'group' => 'restaurant',
                 'description' => 'Force delete restaurant information',
-            ],  
-
-
-            // Users
-            [
-                'name' => 'View Users',
-                'slug' => 'users.view',
-                'group' => 'users',
-                'description' => 'View restaurant users',
-            ],
-            [
-                'name' => 'Create Users',
-                'slug' => 'users.create',
-                'group' => 'users',
-                'description' => 'Create restaurant users',
-            ],
-            [
-                'name' => 'Update Users',
-                'slug' => 'users.update',
-                'group' => 'users',
-                'description' => 'Update restaurant users',
-            ],
-            [
-                'name' => 'Delete Users',
-                'slug' => 'users.delete',
-                'group' => 'users',
-                'description' => 'Delete restaurant users',
             ],
 
-
-
-
-            // Tables
+            // Staff Management
             [
-                'name' => 'View Tables',
-                'slug' => 'tables.view',
-                'group' => 'tables',
-                'description' => 'View restaurant tables',
+                'name' => 'View Staff',
+                'slug' => 'staff.view',
+                'group' => 'staff',
+                'description' => 'View restaurant staff',
             ],
             [
-                'name' => 'Create Tables',
-                'slug' => 'tables.create',
-                'group' => 'tables',
-                'description' => 'Create restaurant tables',
+                'name' => 'Create Staff',
+                'slug' => 'staff.create',
+                'group' => 'staff',
+                'description' => 'Create restaurant staff',
             ],
             [
-                'name' => 'Update Tables',
-                'slug' => 'tables.update',
-                'group' => 'tables',
-                'description' => 'Update restaurant tables',
+                'name' => 'Update Staff',
+                'slug' => 'staff.update',
+                'group' => 'staff',
+                'description' => 'Update restaurant staff',
             ],
             [
-                'name' => 'Delete Tables',
-                'slug' => 'tables.delete',
-                'group' => 'tables',
-                'description' => 'Delete restaurant tables',
+                'name' => 'Delete Staff',
+                'slug' => 'staff.delete',
+                'group' => 'staff',
+                'description' => 'Delete restaurant staff',
+            ],
+            [
+                'name' => 'Restore Staff',
+                'slug' => 'staff.restore',
+                'group' => 'staff',
+                'description' => 'Restore restaurant staff',
             ],
 
+            // Table Management
+            [
+                'name' => 'View Table',
+                'slug' => 'table.view',
+                'group' => 'table',
+                'description' => 'View restaurant table',
+            ],
+            [
+                'name' => 'Create Table',
+                'slug' => 'table.create',
+                'group' => 'table',
+                'description' => 'Create restaurant table',
+            ],
+            [
+                'name' => 'Update Table',
+                'slug' => 'table.update',
+                'group' => 'table',
+                'description' => 'Update restaurant table',
+            ],
+            [
+                'name' => 'Delete Table',
+                'slug' => 'table.delete',
+                'group' => 'table',
+                'description' => 'Delete restaurant table',
+            ],
 
+            // Category Management
+            [
+                'name' => 'View Category',
+                'slug' => 'category.view',
+                'group' => 'category',
+                'description' => 'View category',
+            ],
+            [
+                'name' => 'Create Category',
+                'slug' => 'category.create',
+                'group' => 'category',
+                'description' => 'Create category',
+            ],
+            [
+                'name' => 'Update Category',
+                'slug' => 'category.update',
+                'group' => 'category',
+                'description' => 'Update category',
+            ],
+            [
+                'name' => 'Delete Category',
+                'slug' => 'category.delete',
+                'group' => 'category',
+                'description' => 'Delete category',
+            ],
 
-            // Menu
+            // Menu Management
             [
                 'name' => 'View Menu',
                 'slug' => 'menu.view',
@@ -187,74 +209,73 @@ class PermissionSeeder extends Seeder
                 'name' => 'Create Menu',
                 'slug' => 'menu.create',
                 'group' => 'menu',
-                'description' => 'Create menu items',
+                'description' => 'Create menu item',
             ],
             [
                 'name' => 'Update Menu',
                 'slug' => 'menu.update',
                 'group' => 'menu',
-                'description' => 'Update menu items',
+                'description' => 'Update menu item',
             ],
             [
                 'name' => 'Delete Menu',
                 'slug' => 'menu.delete',
                 'group' => 'menu',
-                'description' => 'Delete menu items',
+                'description' => 'Delete menu item',
             ],
 
-
-            // Orders
+            // Order Management
             [
-                'name' => 'View Orders',
-                'slug' => 'orders.view',
-                'group' => 'orders',
-                'description' => 'View orders',
+                'name' => 'View Order',
+                'slug' => 'order.view',
+                'group' => 'order',
+                'description' => 'View order',
             ],
             [
-                'name' => 'Create Orders',
-                'slug' => 'orders.create',
-                'group' => 'orders',
-                'description' => 'Create orders',
+                'name' => 'Create Order',
+                'slug' => 'order.create',
+                'group' => 'order',
+                'description' => 'Create order',
             ],
             [
-                'name' => 'Update Orders',
-                'slug' => 'orders.update',
-                'group' => 'orders',
-                'description' => 'Update orders',
+                'name' => 'Update Order',
+                'slug' => 'order.update',
+                'group' => 'order',
+                'description' => 'Update order',
             ],
             [
-                'name' => 'Cancel Orders',
-                'slug' => 'orders.cancel',
-                'group' => 'orders',
-                'description' => 'Cancel orders',
+                'name' => 'Cancel Order',
+                'slug' => 'order.cancel',
+                'group' => 'order',
+                'description' => 'Cancel order',
             ],
             [
                 'name' => 'Update Order Status',
-                'slug' => 'orders.update_status',
-                'group' => 'orders',
-                'description' => 'Update orders status.',
+                'slug' => 'order.update_status',
+                'group' => 'order',
+                'description' => 'Update order status',
             ],
 
-            // Payments
+            // Payment Management
             [
-                'name' => 'View Payments',
-                'slug' => 'payments.view',
-                'group' => 'payments',
-                'description' => 'View payments',
+                'name' => 'View Payment',
+                'slug' => 'payment.view',
+                'group' => 'payment',
+                'description' => 'View payment',
             ],
             [
-                'name' => 'Process Payments',
-                'slug' => 'payments.process',
-                'group' => 'payments',
-                'description' => 'Process payments',
+                'name' => 'Process Payment',
+                'slug' => 'payment.process',
+                'group' => 'payment',
+                'description' => 'Process payment',
             ],
 
-            // Reports
+            // Report Management
             [
-                'name' => 'View Reports',
-                'slug' => 'reports.view',
-                'group' => 'reports',
-                'description' => 'View reports',
+                'name' => 'View Report',
+                'slug' => 'report.view',
+                'group' => 'report',
+                'description' => 'View report',
             ],
         ];
 
