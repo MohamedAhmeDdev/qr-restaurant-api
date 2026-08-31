@@ -232,7 +232,8 @@ class AuthController extends Controller
         ]);
     }
 
-    /**
+    
+  /**
      * Verify Current Auth Token and Return Clean User Data
      */
     public function verify(Request $request)
@@ -240,70 +241,12 @@ class AuthController extends Controller
         $user = $request->user()->load('roles');
         $userRole = $user->roles->first()?->slug;
 
-        // 1. Super Admin Role
-        if ($userRole === 'super_admin') {
-            return response()->json([
-                'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'role' => $userRole,
-                ],
-            ]);
-        }
-
-        // 2. Organization Owner / Restaurant Admin
-        $ownedOrg = $user->ownedOrganizations()->with(['restaurants' => function ($query) {
-            $query->select('id', 'organization_id', 'name', 'slug', 'logo', 'status', 'is_active');
-        }])->first();
-
-        if ($ownedOrg) {
-            return response()->json([
-                'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'role' => $userRole,
-                    'organization' => [
-                        'id' => $ownedOrg->id,
-                        'name' => $ownedOrg->name,
-                        'slug' => $ownedOrg->slug,
-                    ],
-                    'restaurants' => $ownedOrg->restaurants,
-                ],
-            ]);
-        }
-
-        // 3. Operational Staff (Cashier, Waiter, Manager, etc.)
-        $assignedRestaurants = $user->assignedRestaurants()
-            ->with('organization:id,name,slug')
-            ->get([
-                'restaurants.id',
-                'restaurants.organization_id',
-                'restaurants.name',
-                'restaurants.slug',
-            ]);
-
-        $firstRestaurant = $assignedRestaurants->first();
-        $organization = $firstRestaurant?->organization ? [
-            'id' => $firstRestaurant->organization->id,
-            'name' => $firstRestaurant->organization->name,
-            'slug' => $firstRestaurant->organization->slug,
-        ] : null;
-
-        $restaurantsPayload = $assignedRestaurants->map(function ($restaurant) {
-            unset($restaurant->organization);
-            return $restaurant;
-        });
-
         return response()->json([
             'user' => [
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $userRole,
-                'organization' => $organization,
-                'restaurants' => $restaurantsPayload,
             ],
         ]);
     }

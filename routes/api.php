@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\RegistrationController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\OrganizationController;
@@ -125,19 +126,6 @@ Route::middleware('auth:sanctum')->group(function () {
     */
     Route::middleware(['restaurant.access'])->group(function () {
 
-        Route::get('/tables', [TableController::class, 'index'])
-            ->middleware('permission:table.view');
-        Route::post('/tables', [TableController::class, 'store'])
-            ->middleware('permission:table.create');
-        Route::get('/tables/{id}', [TableController::class, 'show'])
-            ->middleware('permission:table.view');
-        Route::put('/tables/{id}', [TableController::class, 'update'])
-            ->middleware('permission:table.update');
-        Route::delete('/tables/{id}', [TableController::class, 'destroy'])
-            ->middleware('permission:table.delete');
-
-        Route::post('/{id}/regenerate-qr', [TableController::class, 'regenerateQr'])
-            ->middleware('permission:table.update');
 
 
         // Staff Management Endpoints
@@ -155,5 +143,35 @@ Route::middleware('auth:sanctum')->group(function () {
             ->middleware('permission:staff.restore');
         Route::delete('/staff/{id}/force', [StaffController::class, 'forceDelete'])
             ->middleware('permission:staff.delete');
+
+
+        Route::get('/tables', [TableController::class, 'index'])
+            ->middleware('permission:table.view');
+        Route::post('/tables', [TableController::class, 'store'])
+            ->middleware('permission:table.create');
+        Route::get('/tables/{id}', [TableController::class, 'show'])
+            ->middleware('permission:table.view');
+        Route::put('/tables/{id}', [TableController::class, 'update'])
+            ->middleware('permission:table.update');
+        Route::delete('/tables/{id}', [TableController::class, 'destroy'])
+            ->middleware('permission:table.delete');
+        Route::post('/{id}/regenerate-qr', [TableController::class, 'regenerateQr'])
+            ->middleware('permission:table.update');
+
+
+
+        Route::get('/categories', [CategoryController::class, 'index'])
+            ->middleware('permission:category.view');
+        Route::post('/categories', [CategoryController::class, 'store'])
+            ->middleware('permission:category.create');
+        Route::post('/categories/reorder', [CategoryController::class, 'reorder'])
+            ->middleware('permission:category.update');
+        Route::get('/categories/{id}', [CategoryController::class, 'show'])
+            ->middleware('permission:category.view');
+        Route::put('/categories/{id}', [CategoryController::class, 'update'])
+            ->middleware('permission:category.update');
+
+        Route::delete('/categories/{id}', [CategoryController::class, 'destroy'])
+            ->middleware('permission:category.delete');
     });
 });

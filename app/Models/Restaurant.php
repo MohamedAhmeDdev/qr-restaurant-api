@@ -28,20 +28,23 @@ class Restaurant extends Model
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'staff')
-                    ->withPivot('status', 'shift_type')
-                    ->withTimestamps();
+            ->withPivot('status', 'shift_type')
+            ->withTimestamps();
     }
 
-    /**
-     * Direct access to staff pivot records.
-     */
+
     public function staff(): HasMany
     {
         return $this->hasMany(Staff::class);
     }
 
     public function tables(): HasMany
-{
-    return $this->hasMany(Table::class);
-}
+    {
+        return $this->hasMany(Table::class);
+    }
+
+    public function categories(): HasMany
+    {
+        return $this->hasMany(Category::class)->orderBy('sort_order');
+    }
 }
