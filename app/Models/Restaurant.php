@@ -47,4 +47,14 @@ class Restaurant extends Model
     {
         return $this->hasMany(Category::class)->orderBy('sort_order');
     }
+
+    public function menuItems(): HasMany
+    {
+        return $this->hasMany(MenuItem::class)->orderBy('sort_order');
+    }
+
+    public function modifierGroups(): HasMany
+    {
+        return $this->hasMany(ModifierGroup::class)->orderBy('sort_order');
+    }
 }

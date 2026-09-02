@@ -11,6 +11,25 @@ use Illuminate\Support\Str;
 
 class CategoryController extends Controller
 {
+
+public function option(Request $request): JsonResponse
+{
+    $restaurant = $request->attributes->get('restaurant');
+
+    $categories = Category::query()
+        ->where('restaurant_id', $restaurant->id)
+        ->where('is_active', true)
+        ->orderBy('sort_order', 'asc')
+        ->orderBy('name', 'asc')
+        ->select(['id', 'name',])
+        ->get();
+
+    return response()->json([
+        'status' => 'success',
+        'data'   => $categories,
+    ]);
+}
+
     public function index(Request $request): JsonResponse
     {
         $restaurant = $request->attributes->get('restaurant');

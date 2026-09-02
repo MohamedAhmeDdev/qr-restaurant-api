@@ -14,15 +14,6 @@ class EnsureRestaurantAccess
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $user = $request->user();
-
-        if (! $user) {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Unauthenticated.',
-            ], 401);
-        }
-
         $slug = $request->header('X-Restaurant-Slug');
 
         if (! $slug) {
@@ -41,13 +32,23 @@ class EnsureRestaurantAccess
             ], 404);
         }
 
-        // Block access to trashed restaurants for active workspace endpoints
+        // Block access to trashed restaurants
         if ($restaurant->trashed()) {
             return response()->json([
                 'status' => 'error',
                 'message' => 'Restaurant workspace is inactive or deleted.',
             ], 410);
         }
+
+        $user = $request->user();
+
+        // Guest Access: If no user is authenticated, permit public viewing of resolved workspace
+        if (! $user) {
+            $request->attributes->set('restaurant', $restaurant);
+            return $next($request);
+        }
+
+        // Authenticated Access Verification
 
         // Organization Ownership
         $ownedOrg = $user->ownedOrganizations()->first();
