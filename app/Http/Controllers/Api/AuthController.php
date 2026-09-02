@@ -14,6 +14,47 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+
+    /**
+     * Build the standard user payload.
+     * For staff roles, includes assigned restaurants + organization.
+     */
+    private function buildUserPayload(User $user): array
+    {
+        $user->load('roles');
+        $role = $user->roles->first()?->slug;
+
+        $payload = [
+            'id'    => $user->id,
+            'name'  => $user->name,
+            'email' => $user->email,
+            'role'  => $role,
+        ];
+
+        // Staff roles receive assigned restaurant data
+        if (! in_array($role, ['super_admin', 'restaurant_admin'])) {
+            $assignedRestaurants = $user->assignedRestaurants()
+                ->with('organization:id,name,slug')
+                ->get([
+                    'restaurants.id',
+                    'restaurants.organization_id',
+                    'restaurants.name',
+                    'restaurants.slug',
+                ]);
+
+            $firstRestaurant = $assignedRestaurants->first();
+
+            $payload['organization'] = $firstRestaurant?->organization ? [
+                'id'   => $firstRestaurant->organization->id,
+                'name' => $firstRestaurant->organization->name,
+                'slug' => $firstRestaurant->organization->slug,
+            ] : null;
+
+            $payload['restaurants'] = $assignedRestaurants->makeHidden('organization');
+        }
+
+        return $payload;
+    }
     /**
      * Handle User Login (Checks if 2FA is Enabled)
      */
@@ -32,7 +73,7 @@ class AuthController extends Controller
             ]);
         }
 
-        // --- Check 2FA Status ---
+        // 2FA required
         if ($user->two_factor_enabled) {
             $code = (string) rand(100000, 999999);
             $user->update([
@@ -49,26 +90,16 @@ class AuthController extends Controller
             ]);
         }
 
-        // --- Standard Login (2FA Disabled) ---
         $user->tokens()->delete();
         $token = $user->createToken('auth-token')->plainTextToken;
-
-        // Dynamically retrieve single role
-        $role = $user->roles()->first()?->slug;
 
         return response()->json([
             'two_factor_required' => false,
             'message' => 'Login successful',
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'role' => $role,
-            ],
+            'user' => $this->buildUserPayload($user),   // <-- now includes restaurants for staff
             'token' => $token,
         ]);
     }
-
     /**
      * Toggle Two-Factor Authentication On/Off
      */
@@ -129,31 +160,20 @@ class AuthController extends Controller
             ]);
         }
 
-        // Clear 2FA code
         $user->update([
             'two_factor_code' => null,
             'two_factor_expires_at' => null,
         ]);
 
-        // Issue Sanctum Token
         $user->tokens()->delete();
         $token = $user->createToken('auth-token')->plainTextToken;
 
-        // Dynamically retrieve single role
-        $role = $user->roles()->first()?->slug;
-
         return response()->json([
             'message' => 'Login successful',
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'role' => $role,
-            ],
+            'user' => $this->buildUserPayload($user),   // <-- now includes restaurants for staff
             'token' => $token,
         ]);
     }
-
     /**
      * Send Password Reset Link Email
      */
@@ -232,24 +252,16 @@ class AuthController extends Controller
         ]);
     }
 
-    
-  /**
+
+    /**
      * Verify Current Auth Token and Return Clean User Data
      */
-    public function verify(Request $request)
-    {
-        $user = $request->user()->load('roles');
-        $userRole = $user->roles->first()?->slug;
-
-        return response()->json([
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'role' => $userRole,
-            ],
-        ]);
-    }
+   public function verify(Request $request)
+{
+    return response()->json([
+        'user' => $this->buildUserPayload($request->user()),
+    ]);
+}
 
     /**
      * Change authenticated user's password
