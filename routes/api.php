@@ -115,7 +115,7 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:restaurant.create');
     Route::get('/restaurants/{id}', [RestaurantController::class, 'show'])
         ->middleware('permission:restaurant.view');
-    Route::post('/restaurants/{id}', [RestaurantController::class, 'update'])
+    Route::put('/restaurants/{id}', [RestaurantController::class, 'update'])
         ->middleware('permission:restaurant.update');
     Route::delete('/restaurants/{id}', [RestaurantController::class, 'destroy'])
         ->middleware('permission:restaurant.delete');
