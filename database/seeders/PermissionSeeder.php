@@ -255,6 +255,7 @@ class PermissionSeeder extends Seeder
                 'group' => 'order',
                 'description' => 'Update order status',
             ],
+            
 
             // Payment Management
             [

@@ -3,11 +3,14 @@
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
+use App\Http\Controllers\Api\GuestOrderController;
 use App\Http\Controllers\Api\MenuItemController;
 use App\Http\Controllers\Api\ModifierGroupController;
+use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\RegistrationController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\OrganizationController;
+use App\Http\Controllers\Api\PublicMenuController;
 use App\Http\Controllers\Api\RestaurantController;
 use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\TableController;
@@ -15,10 +18,9 @@ use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
-| Public Auth Routes
+| Public Guest Routes (No Auth)
 |--------------------------------------------------------------------------
 */
-
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/verify-2fa', [AuthController::class, 'verifyTwoFactor']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword']);
@@ -27,14 +29,17 @@ Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 Route::get('/verify-invite', [RegistrationController::class, 'verifyToken']);
 Route::post('/register', [RegistrationController::class, 'register']);
 
-/*
-|--------------------------------------------------------------------------
-| Public Tenant-Scoped Routes (e.g., Guest Digital Menu / Ordering)
-|--------------------------------------------------------------------------
-*/
-  Route::get('/option/categories', [CategoryController::class, 'option']);
-    Route::get('/option/modifier-groups', [ModifierGroupController::class, 'option']);
-    Route::get('/public/menu-items', [MenuItemController::class, 'index']);
+
+Route::middleware('guest.table')->group(function () {
+   Route::get('/{restaurantSlug}/{tableSlug}/menu', [PublicMenuController::class, 'index']);
+
+    Route::get('/{restaurantSlug}/{tableSlug}/menu/items/{itemId}', [PublicMenuController::class, 'show']);
+       Route::get('/orders', [GuestOrderController::class, 'index']);
+    Route::get('/orders/{id}', [GuestOrderController::class, 'show']);
+  
+
+});
+
 
 
 /*
@@ -43,11 +48,7 @@ Route::post('/register', [RegistrationController::class, 'register']);
 |--------------------------------------------------------------------------
 */
 Route::middleware('auth:sanctum')->group(function () {
-    /*
-    |--------------------------------------------------------------------------
-    |//Settings APIs
-    |--------------------------------------------------------------------------
-    */
+    //Settings APIs
     Route::get('/user/2fa-status', [AuthController::class, 'getTwoFactorStatus']);
     Route::post('/user/toggle-2fa', [AuthController::class, 'toggleTwoFactor']);
     Route::post('/user/change-password', [AuthController::class, 'changePassword']);
@@ -56,13 +57,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/verify', [AuthController::class, 'verify']);
     Route::post('/logout', [AuthController::class, 'logout']);
 
-    Route::get('/roles/options', [RoleController::class, 'options']);
+ 
 
 
-    
+
     /*
     |--------------------------------------------------------------------------
-        Super Admin APIs
+    | Super Admin APIs
     |--------------------------------------------------------------------------
     */
     // Permission Management Routes (Super Admin Only)
@@ -79,6 +80,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // Role Management Routes (Super Admin Only)
+       Route::get('/roles/options', [RoleController::class, 'options']);
     Route::prefix('/roles')->middleware('super_admin')->group(function () {
         Route::get('/', [RoleController::class, 'index']);
         Route::post('/', [RoleController::class, 'store'])
@@ -109,6 +111,14 @@ Route::middleware('auth:sanctum')->group(function () {
 
 
 
+
+
+    /*
+--------------------------------------------------------------------------
+    | restaurant admin APIs
+    |--------------------------------------------------------------------------
+    */
+
     Route::get('/restaurants', [RestaurantController::class, 'index'])
         ->middleware('permission:restaurant.view');
     Route::post('/restaurants', [RestaurantController::class, 'store'])
@@ -124,24 +134,18 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::delete('/restaurants/{id}/force', [RestaurantController::class, 'forceDelete'])
         ->middleware('permission:restaurant.force_delete');
 
-
-
-
-
-
-
-
-
-
-
     /*
 --------------------------------------------------------------------------
     | Active Workspace-Scoped Endpoints (Requires X-Restaurant-Slug Header)
     |--------------------------------------------------------------------------
     */
     Route::middleware(['restaurant.access'])->group(function () {
+        /*
+|--------------------------------------------------------------------------
+|  Staff Management
+|--------------------------------------------------------------------------
+*/
 
-        // Staff Management Endpoints
         Route::get('/staff', [StaffController::class, 'index'])
             ->middleware('permission:staff.view');
         Route::post('/staff', [StaffController::class, 'store'])
@@ -157,7 +161,11 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/staff/{id}/force', [StaffController::class, 'forceDelete'])
             ->middleware('permission:staff.delete');
 
-
+        /*
+|--------------------------------------------------------------------------
+tables
+|--------------------------------------------------------------------------
+*/
         Route::get('/tables', [TableController::class, 'index'])
             ->middleware('permission:table.view');
         Route::post('/tables', [TableController::class, 'store'])
@@ -171,8 +179,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/{id}/regenerate-qr', [TableController::class, 'regenerateQr'])
             ->middleware('permission:table.update');
 
-
-
+        /*
+|--------------------------------------------------------------------------
+ Categories
+|--------------------------------------------------------------------------
+*/
+        Route::get('/option/categories', [CategoryController::class, 'option']);
         Route::get('/categories', [CategoryController::class, 'index'])
             ->middleware('permission:category.view');
         Route::post('/categories', [CategoryController::class, 'store'])
@@ -192,6 +204,7 @@ Route::middleware('auth:sanctum')->group(function () {
 | Modifier Groups 
 |--------------------------------------------------------------------------
 */
+        Route::get('/option/modifier-groups', [ModifierGroupController::class, 'option']);
         Route::get('/modifier-groups', [ModifierGroupController::class, 'index'])
             ->middleware('permission:modifier.view');
         Route::post('/modifier-groups', [ModifierGroupController::class, 'store'])
@@ -219,4 +232,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/menu-items/{id}', [MenuItemController::class, 'destroy'])
             ->middleware('permission:menu.delete');
     });
+
+
+    Route::get('/orders', [OrderController::class, 'index'])
+        ->middleware('permission:order.view');
+    Route::get('/orders/{id}', [OrderController::class, 'show'])
+        ->middleware('permission:order.view');
+    Route::put('/orders/{id}/status', [OrderController::class, 'updateStatus'])
+        ->middleware('permission:order.update');
 });

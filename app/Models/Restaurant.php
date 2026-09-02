@@ -57,4 +57,9 @@ class Restaurant extends Model
     {
         return $this->hasMany(ModifierGroup::class)->orderBy('sort_order');
     }
+
+    public function orders(): HasMany
+{
+    return $this->hasMany(Order::class)->latest();
+}
 }
