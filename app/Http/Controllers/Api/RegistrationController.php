@@ -5,7 +5,6 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Invitation;
 use App\Models\Organizations;
-use App\Models\Restaurant;
 use App\Models\Role;
 use App\Models\User;
 use App\Notifications\RestaurantOwnerInvitedNotification;
@@ -21,20 +20,11 @@ class RegistrationController extends Controller
      */
     public function sendInvite(Request $request)
     {
-        // 1. Authorize super admin access via dynamic user role
-        if (! $request->user() || $request->user()->roles()->first()?->slug !== 'super_admin') {
-            return response()->json([
-                'status' => 'error',
-                'message' => 'Unauthorized. Super Admin permissions required.',
-            ], 403);
-        }
 
-        // 2. Validate input parameters
         $validated = $request->validate([
             'email' => 'required|email|unique:users,email',
         ]);
 
-        // 3. Check for an existing active (pending & not expired) invitation
         $existingInvitation = Invitation::where('email', $validated['email'])
             ->whereNull('accepted_at')
             ->where('expires_at', '>', now())
@@ -47,13 +37,11 @@ class RegistrationController extends Controller
             ], 422);
         }
 
-        // 4. Cleanup expired, unaccepted invitations before creating a new one
         Invitation::where('email', $validated['email'])
             ->whereNull('accepted_at')
             ->where('expires_at', '<=', now())
             ->delete();
 
-        // 5. Generate secure token & set 1-hour expiration
         $token = Str::random(40);
         $expiresAt = now()->addHour();
 
@@ -79,11 +67,10 @@ class RegistrationController extends Controller
     }
 
     /**
-     * Resend/Refresh Invitation Token for a Pending or Expired Invite
+     * Resend/Refresh Invitation Token
      */
     public function resendInvite(Request $request)
     {
-        // 1. Authorize super admin access via dynamic user role
         if (! $request->user() || $request->user()->roles()->first()?->slug !== 'super_admin') {
             return response()->json([
                 'status' => 'error',
@@ -91,12 +78,10 @@ class RegistrationController extends Controller
             ], 403);
         }
 
-        // 2. Validate request
         $validated = $request->validate([
             'email' => 'required|email|exists:invitations,email',
         ]);
 
-        // 3. Find existing unaccepted invitation
         $invitation = Invitation::where('email', $validated['email'])
             ->whereNull('accepted_at')
             ->first();
@@ -108,7 +93,6 @@ class RegistrationController extends Controller
             ], 404);
         }
 
-        // 4. Regenerate token & reset 1-hour expiration
         $newToken = Str::random(40);
         $newExpiresAt = now()->addHour();
 
@@ -118,7 +102,6 @@ class RegistrationController extends Controller
             'expires_at' => $newExpiresAt,
         ]);
 
-        // 5. Dispatch Mail Notification with new token
         Notification::route('mail', $invitation->email)
             ->notify(new RestaurantOwnerInvitedNotification($newToken, $invitation->expires_at));
 
@@ -160,8 +143,8 @@ class RegistrationController extends Controller
         ]);
     }
 
- /**
-     * Complete Owner Registration, Organization Creation & First Restaurant Setup
+    /**
+     * Registration
      */
     public function register(Request $request)
     {
@@ -170,11 +153,8 @@ class RegistrationController extends Controller
             'name' => 'required|string|max:255',
             'password' => 'required|string|min:8|confirmed',
             'organization_name' => 'required|string|max:255|unique:organizations,name',
-            'restaurant_name' => 'required|string|max:255',
-            'status' => 'nullable|string|in:active,suspended',
         ]);
 
-        // 1. Verify invitation token
         $invitation = Invitation::where('token', $validated['token'])
             ->whereNull('accepted_at')
             ->where('expires_at', '>', now())
@@ -187,29 +167,21 @@ class RegistrationController extends Controller
             ], 400);
         }
 
-        // 2. Perform Atomic Creation (User + Role + Organization + Restaurant)
         $session = DB::transaction(function () use ($validated, $invitation) {
-            if (Restaurant::where('name', $validated['restaurant_name'])->exists()) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'restaurant_name' => ['A restaurant with this name already exists.']
-                ]);
-            }
-
-            // Create user account
+            // 1. Create account
             $user = User::create([
                 'name' => $validated['name'],
                 'email' => $invitation->email,
                 'password' => $validated['password'],
             ]);
 
-            // Fetch existing role only
             $adminRole = Role::where('slug', 'restaurant_admin')->firstOrFail();
-            $user->roles()->attach($adminRole->id);
+            $user->roles()->attach($adminRole->id, [
+                'status' => 'active',
+            ]);
 
-            // Generate unique slug for Organization
+            // 2. Create Organization as inactive
             $orgSlug = $this->generateUniqueSlug(Organizations::class, $validated['organization_name']);
-
-            // Organization links directly to user via owner_id
             $organization = Organizations::create([
                 'name' => $validated['organization_name'],
                 'slug' => $orgSlug,
@@ -217,56 +189,42 @@ class RegistrationController extends Controller
                 'is_active' => true,
             ]);
 
-            // Generate unique slug for Restaurant
-            $restaurantSlug = $this->generateUniqueSlug(Restaurant::class, $validated['restaurant_name']);
-
-            // Create primary restaurant under organization
-            // Note: Restaurant Admin is NOT attached to restaurant_user pivot table
-            $restaurant = $organization->restaurants()->create([
-                'name' => $validated['restaurant_name'],
-                'slug' => $restaurantSlug,
-                'status' => $validated['status'] ?? 'active',
-            ]);
-
-            // Mark invitation as consumed
             $invitation->update(['accepted_at' => now()]);
 
             $token = $user->createToken('auth-token')->plainTextToken;
 
             return [
-                'user' => $user,
-                'role' => $adminRole->slug,
+                'user'         => $user,
+                'role'         => $adminRole->slug,
                 'organization' => $organization,
-                'restaurant' => $restaurant,
-                'token' => $token,
+                'token'        => $token,
             ];
         });
 
         return response()->json([
-            'status' => 'success',
-            'message' => 'Organization and restaurant onboarding completed successfully.',
-            'data' => [
+            'status'  => 'success',
+            'message' => 'Registration complete.',
+            'data'    => [
                 'user' => [
-                    'id' => $session['user']->id,
-                    'name' => $session['user']->name,
+                    'id'    => $session['user']->id,
+                    'name'  => $session['user']->name,
                     'email' => $session['user']->email,
-                    'role' => $session['role'],
+                    'role'  => $session['role'],
                 ],
-                'token' => $session['token'],
+                'organization_slug' => $session['organization']->slug,
+                'token'             => $session['token'],
             ],
         ], 201);
     }
-    /**
-     * Helper to generate a unique slug for any Eloquent model.
-     */
+
     private function generateUniqueSlug(string $modelClass, string $name): string
     {
         $baseSlug = Str::slug($name);
-        $slug = $baseSlug;
-        $count = 1;
+        $slug     = $baseSlug;
+        $count    = 1;
 
         while ($modelClass::where('slug', $slug)->exists()) {
-            $slug = "{$baseSlug}-{$count}";
+            $slug  = "{$baseSlug}-{$count}";
             $count++;
         }
 

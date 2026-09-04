@@ -22,29 +22,33 @@ class StaffController extends Controller
 
         return Role::where(function ($q) use ($roleInput) {
             if (is_numeric($roleInput)) {
-                $q->where('roles.id', (int) $roleInput);
+                $q->where('id', (int) $roleInput);
+            } else {
+                $term = strtolower((string) $roleInput);
+                $q->whereRaw('LOWER(slug) = ?', [$term])
+                  ->orWhereRaw('LOWER(name) = ?', [$term]);
             }
-            $q->orWhere('roles.slug', strtolower((string) $roleInput))
-              ->orWhere('roles.name', strtolower((string) $roleInput));
         })->first();
     }
 
     private function formatStaffResponse(User $user): array
     {
         $assignedPivot = $user->assignedRestaurants->first()?->pivot;
-        $primaryRole = $user->roles->first();
+        $primaryRole   = $user->roles->first();
 
         return [
             'id'         => $user->id,
             'name'       => $user->name,
             'email'      => $user->email,
             'role'       => $primaryRole ? [
-                'id'   => $primaryRole->id,
-                'name' => $primaryRole->name,
-                'slug' => $primaryRole->slug,
+                'id'     => $primaryRole->id,
+                'name'   => $primaryRole->name,
+                'slug'   => $primaryRole->slug,
+                'status' => $primaryRole->pivot?->status ?? 'active',
             ] : null,
-            'status'     => $assignedPivot?->status,
+            'status'     => $primaryRole?->pivot?->status ?? 'active',
             'shift_type' => $assignedPivot?->shift_type,
+            'started_at' => $assignedPivot?->created_at,
         ];
     }
 
@@ -52,17 +56,21 @@ class StaffController extends Controller
     {
         $restaurant = $request->get('restaurant');
 
-        $baseStaffQuery = Staff::where('restaurant_id', $restaurant->id)
-            ->whereNull('deleted_at');
+        $baseStaffIds = Staff::where('restaurant_id', $restaurant->id)
+            ->whereNull('deleted_at')
+            ->pluck('user_id');
 
         $stats = [
-            'total'  => (clone $baseStaffQuery)->count(),
-            'active' => (clone $baseStaffQuery)->where('status', 'active')->count(),
+            'total'  => $baseStaffIds->count(),
+            'active' => DB::table('user_roles')
+                ->whereIn('user_id', $baseStaffIds)
+                ->where('status', 'active')
+                ->count(),
         ];
 
         $query = User::select(['users.id', 'users.name', 'users.email'])
             ->with([
-                'roles:roles.id,roles.name,roles.slug',
+                'roles' => fn ($q) => $q->withPivot('status'),
                 'assignedRestaurants' => fn ($q) => $q->where('restaurants.id', $restaurant->id)
             ])
             ->whereHas('assignedRestaurants', function ($q) use ($restaurant, $request) {
@@ -83,23 +91,23 @@ class StaffController extends Controller
             });
         });
 
-        $query->when($request->filled('role_id'), function ($q) use ($request) {
-            $roleInput = $request->role_id;
+        $query->when($request->filled('role_id') || $request->filled('role'), function ($q) use ($request) {
+            $roleInput = $request->role_id ?? $request->role;
             $q->whereHas('roles', function ($r) use ($roleInput) {
                 $r->where(function ($sub) use ($roleInput) {
                     if (is_numeric($roleInput)) {
                         $sub->where('roles.id', (int) $roleInput);
+                    } else {
+                        $term = strtolower((string) $roleInput);
+                        $sub->whereRaw('LOWER(roles.slug) = ?', [$term])
+                            ->orWhereRaw('LOWER(roles.name) = ?', [$term]);
                     }
-                    $sub->orWhere('roles.slug', strtolower((string) $roleInput))
-                        ->orWhere('roles.name', (string) $roleInput);
                 });
             });
         });
 
-        $query->when($request->filled('status'), function ($q) use ($restaurant, $request) {
-            $q->whereHas('assignedRestaurants', fn ($r) => $r
-                ->where('restaurants.id', $restaurant->id)
-                ->where('staff.status', $request->status));
+        $query->when($request->filled('status'), function ($q) use ($request) {
+            $q->whereHas('roles', fn ($r) => $r->where('user_roles.status', $request->status));
         });
 
         $query->when($request->filled('shift_type'), function ($q) use ($restaurant, $request) {
@@ -108,7 +116,7 @@ class StaffController extends Controller
                 ->where('staff.shift_type', $request->shift_type));
         });
 
-        $perPage = $request->integer('per_page', 15);
+        $perPage   = $request->integer('per_page', 15);
         $paginator = $query->latest('users.created_at')
             ->paginate($perPage)
             ->through(fn ($user) => $this->formatStaffResponse($user));
@@ -139,7 +147,7 @@ class StaffController extends Controller
             'password'   => 'nullable|string|min:8',
             'role_id'    => 'nullable',
             'role'       => 'nullable',
-            'status'     => 'required|string|in:active,inactive,on_leave',
+            'status'     => 'sometimes|string|in:active,on_leave,deactivated',
             'shift_type' => 'required|string|in:day,night,full_time,flexible',
         ]);
 
@@ -158,36 +166,35 @@ class StaffController extends Controller
                 $user->update(['name' => $validated['name']]);
             }
 
-            // Resolve & Sync Role
-            $roleInput = $validated['role_id'] ?? $validated['role'] ?? null;
-            $role = $this->resolveRole($roleInput);
+            $status = $validated['status'] ?? 'active';
+
+            // Resolve role or assign fallback staff role
+            $roleInput = $validated['role_id'] ?? $validated['role'] ?? 'staff';
+            $role      = $this->resolveRole($roleInput);
 
             if ($role) {
-                $user->roles()->sync([$role->id]);
+                $user->roles()->sync([
+                    $role->id => ['status' => $status]
+                ]);
             }
 
-            // Attach or Update Pivot
+            // Attach or Update Staff Pivot
             $pivot = Staff::withTrashed()
                 ->where('user_id', $user->id)
                 ->where('restaurant_id', $restaurant->id)
                 ->first();
 
-            $status    = $validated['status'] ?? 'active';
             $shiftType = $validated['shift_type'] ?? 'day';
 
             if ($pivot) {
                 if ($pivot->trashed()) {
                     $pivot->restore();
                 }
-                $pivot->update([
-                    'status'     => $status,
-                    'shift_type' => $shiftType,
-                ]);
+                $pivot->update(['shift_type' => $shiftType]);
             } else {
                 Staff::create([
                     'user_id'       => $user->id,
                     'restaurant_id' => $restaurant->id,
-                    'status'        => $status,
                     'shift_type'    => $shiftType,
                 ]);
             }
@@ -195,7 +202,7 @@ class StaffController extends Controller
             $user->notify(new StaffWelcomeNotification($plainPassword, $restaurant));
 
             $user->load([
-                'roles:roles.id,roles.name,roles.slug',
+                'roles' => fn ($q) => $q->withPivot('status'),
                 'assignedRestaurants' => fn ($q) => $q->where('restaurants.id', $restaurant->id)
             ]);
 
@@ -213,7 +220,7 @@ class StaffController extends Controller
 
         $staff = User::select(['users.id', 'users.name', 'users.email'])
             ->with([
-                'roles:roles.id,roles.name,roles.slug',
+                'roles' => fn ($q) => $q->withPivot('status'),
                 'assignedRestaurants' => fn ($q) => $q->where('restaurants.id', $restaurant->id)
             ])
             ->whereHas('assignedRestaurants', function ($q) use ($restaurant) {
@@ -237,7 +244,7 @@ class StaffController extends Controller
             'email'      => 'sometimes|email|max:255|unique:users,email,' . $id,
             'role_id'    => 'nullable',
             'role'       => 'nullable',
-            'status'     => 'sometimes|string|in:active,inactive,pending,on_leave',
+            'status'     => 'sometimes|string|in:active,on_leave,deactivated',
             'shift_type' => 'sometimes|string|in:day,night,full_time,flexible',
         ]);
 
@@ -256,26 +263,25 @@ class StaffController extends Controller
             }
 
             $roleInput = $validated['role_id'] ?? $validated['role'] ?? null;
-            if ($roleInput) {
-                $role = $this->resolveRole($roleInput);
-                if ($role) {
-                    $staff->roles()->sync([$role->id]);
-                }
+            $role      = $roleInput ? $this->resolveRole($roleInput) : $staff->roles()->first();
+
+            if ($role) {
+                $currentStatus = $staff->roles()->where('roles.id', $role->id)->first()?->pivot?->status ?? 'active';
+                $newStatus     = $validated['status'] ?? $currentStatus;
+
+                $staff->roles()->sync([
+                    $role->id => ['status' => $newStatus]
+                ]);
             }
 
-            $pivotUpdates = array_filter([
-                'status'     => $validated['status'] ?? null,
-                'shift_type' => $validated['shift_type'] ?? null,
-            ]);
-
-            if (!empty($pivotUpdates)) {
+            if (isset($validated['shift_type'])) {
                 Staff::where('user_id', $staff->id)
                     ->where('restaurant_id', $restaurant->id)
-                    ->update($pivotUpdates);
+                    ->update(['shift_type' => $validated['shift_type']]);
             }
 
             $staff->load([
-                'roles:roles.id,roles.name,roles.slug',
+                'roles' => fn ($q) => $q->withPivot('status'),
                 'assignedRestaurants' => fn ($q) => $q->where('restaurants.id', $restaurant->id)
             ]);
 
@@ -297,7 +303,7 @@ class StaffController extends Controller
 
         if (! $staff) {
             return response()->json([
-                'status' => 'error',
+                'status'  => 'error',
                 'message' => 'Staff member not found in this restaurant.',
             ], 404);
         }
@@ -321,7 +327,7 @@ class StaffController extends Controller
 
         if (! $staff) {
             return response()->json([
-                'status' => 'error',
+                'status'  => 'error',
                 'message' => 'Trashed staff member not found.',
             ], 404);
         }
@@ -345,7 +351,7 @@ class StaffController extends Controller
 
         if (! $staff) {
             return response()->json([
-                'status' => 'error',
+                'status'  => 'error',
                 'message' => 'Staff member not found.',
             ], 404);
         }

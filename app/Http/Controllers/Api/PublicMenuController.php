@@ -11,9 +11,6 @@ use Illuminate\Http\Request;
 
 class PublicMenuController extends Controller
 {
-    /**
-     * Fetch active restaurant menu categorized and structured using API Resources.
-     */
     public function index(Request $request): JsonResponse
     {
         $restaurant = $request->attributes->get('restaurant');
@@ -76,13 +73,12 @@ class PublicMenuController extends Controller
             'status' => 'success',
             'data'   => [
                 'restaurant' => [
-                    'id'          => $restaurant->id,
-                    'name'        => $restaurant->name,
-                    'slug'        => $restaurant->slug,
-                    'logo_url'    => $restaurant->logo_url ?? null,
-                    'cover_url'   => $restaurant->cover_url ?? null,
-                    'currency'    => $restaurant->currency ?? 'USD',
-                    'description' => $restaurant->description ?? null,
+                    'id'               => $restaurant->id,
+                    'name'             => $restaurant->name,
+                    'slug'             => $restaurant->slug,
+                    'logo'             => $restaurant->logo ?? null,
+                    'background_image' => $restaurant->background_image ?? null,
+                    'currency'         => $restaurant->currency ?? 'USD',
                 ],
                 'table' => [
                     'id'   => $table->id,
@@ -98,9 +94,6 @@ class PublicMenuController extends Controller
         ]);
     }
 
-    /**
-     * Fetch a single menu item with modifiers mapped through MenuItemResource.
-     */
     public function show(Request $request, int $itemId): JsonResponse
     {
         $restaurant = $request->attributes->get('restaurant');

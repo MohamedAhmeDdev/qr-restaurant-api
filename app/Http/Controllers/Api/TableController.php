@@ -11,6 +11,7 @@ use BaconQrCode\Writer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class TableController extends Controller
 {
@@ -28,7 +29,8 @@ class TableController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('slug', 'like', "%{$search}%");
+                  ->orWhere('slug', 'like', "%{$search}%")
+                  ->orWhere('table_number', 'like', "%{$search}%");
             });
         }
 
@@ -36,7 +38,7 @@ class TableController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data'   => $query->orderBy('name')->paginate($perPage),
+            'data'   => $query->orderBy('table_number')->orderBy('name')->paginate($perPage),
         ]);
     }
 
@@ -45,6 +47,12 @@ class TableController extends Controller
         $restaurant = $request->attributes->get('restaurant');
 
         $validated = $request->validate([
+            'table_number' => [
+                'required',
+                'integer',
+                'min:1',
+                Rule::unique('tables')->where('restaurant_id', $restaurant->id),
+            ],
             'name'      => 'required|string|max:255',
             'capacity'  => 'nullable|integer|min:1|max:50',
             'status'    => 'nullable|string|in:available,occupied,reserved,cleaning',
@@ -56,6 +64,7 @@ class TableController extends Controller
 
         $table = Table::create([
             'restaurant_id' => $restaurant->id,
+            'table_number'  => $validated['table_number'],
             'name'          => $validated['name'],
             'slug'          => $slug,
             'token'         => $token,
@@ -105,6 +114,14 @@ class TableController extends Controller
         }
 
         $validated = $request->validate([
+            'table_number' => [
+                'sometimes',
+                'integer',
+                'min:1',
+                Rule::unique('tables')
+                    ->where('restaurant_id', $restaurant->id)
+                    ->ignore($table->id),
+            ],
             'name'      => 'sometimes|string|max:255',
             'capacity'  => 'sometimes|integer|min:1|max:50',
             'status'    => 'sometimes|string|in:available,occupied,reserved,cleaning',
@@ -118,12 +135,11 @@ class TableController extends Controller
                 $table->id
             );
 
-            // Regenerate SVG so embedded URL matches the updated slug
-    $validated['qr_code'] = $this->buildQrSvg(
-        $restaurant->slug, 
-        $validated['slug'], 
-        $table->token
-    );
+            $validated['qr_code'] = $this->buildQrSvg(
+                $restaurant->slug,
+                $validated['slug'],
+                $table->token
+            );
         }
 
         $table->update($validated);
@@ -182,8 +198,8 @@ class TableController extends Controller
 
     private function buildQrSvg(string $restaurantSlug, string $tableSlug, string $token): string
     {
-       $qrUrl = rtrim(config('app.frontend_url')) 
-       . "/{$restaurantSlug}/menu/{$tableSlug}?token={$token}";
+        $qrUrl = rtrim(config('app.frontend_url'))
+            . "/{$restaurantSlug}/menu/{$tableSlug}?token={$token}";
 
         $renderer = new ImageRenderer(
             new RendererStyle(300, 10),
@@ -192,8 +208,6 @@ class TableController extends Controller
 
         return (new Writer($renderer))->writeString($qrUrl);
     }
-
-
 
     private function generateUniqueSlug(int $restaurantId, string $name, ?int $ignoreId = null): string
     {

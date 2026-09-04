@@ -55,6 +55,7 @@ class AuthController extends Controller
 
         return $payload;
     }
+
     /**
      * Handle User Login (Checks if 2FA is Enabled)
      */
@@ -71,6 +72,36 @@ class AuthController extends Controller
             throw ValidationException::withMessages([
                 'email' => ['The provided credentials are incorrect.'],
             ]);
+        }
+
+        // 1. Account Deactivation Check
+        if (isset($user->is_active) && ! $user->is_active) {
+            throw ValidationException::withMessages([
+                'email' => ['Your account has been deactivated.'],
+            ]);
+        }
+
+        // 2. Restaurant Workspace Check (Non-Admins)
+        if (! $user->isSuperAdmin() && ! $user->ownedOrganizations()->exists()) {
+            $staffRecords = $user->assignedRestaurants()
+                ->whereNull('staff.deleted_at')
+                ->get();
+
+            if ($staffRecords->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'email' => ['Your account is not assigned to any restaurant workspace.'],
+                ]);
+            }
+
+            $hasActiveRestaurant = $staffRecords->contains(function ($restaurant) {
+                return $restaurant->pivot->status === 'active' && $restaurant->is_active && $restaurant->status === 'active';
+            });
+
+            if (! $hasActiveRestaurant) {
+                throw ValidationException::withMessages([
+                    'email' => ['Your staff account is inactive or your assigned restaurant workspace is suspended.'],
+                ]);
+            }
         }
 
         // 2FA required
@@ -100,6 +131,7 @@ class AuthController extends Controller
             'token' => $token,
         ]);
     }
+
     /**
      * Toggle Two-Factor Authentication On/Off
      */
@@ -148,6 +180,36 @@ class AuthController extends Controller
             ]);
         }
 
+        // 1. Account Deactivation Check
+        if (isset($user->is_active) && ! $user->is_active) {
+            throw ValidationException::withMessages([
+                'email' => ['Your account has been deactivated.'],
+            ]);
+        }
+
+        // 2. Restaurant Workspace Check (Non-Admins)
+        if (! $user->isSuperAdmin() && ! $user->ownedOrganizations()->exists()) {
+            $staffRecords = $user->assignedRestaurants()
+                ->whereNull('staff.deleted_at')
+                ->get();
+
+            if ($staffRecords->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'email' => ['Your account is not assigned to any restaurant workspace.'],
+                ]);
+            }
+
+            $hasActiveRestaurant = $staffRecords->contains(function ($restaurant) {
+                return $restaurant->pivot->status === 'active' && $restaurant->is_active && $restaurant->status === 'active';
+            });
+
+            if (! $hasActiveRestaurant) {
+                throw ValidationException::withMessages([
+                    'email' => ['Your staff account is inactive or your assigned restaurant workspace is suspended.'],
+                ]);
+            }
+        }
+
         if (! $user->two_factor_code || ! $user->two_factor_expires_at || now()->gt($user->two_factor_expires_at)) {
             throw ValidationException::withMessages([
                 'code' => ['Your 2FA code has expired. Please log in again to receive a new code.'],
@@ -174,6 +236,7 @@ class AuthController extends Controller
             'token' => $token,
         ]);
     }
+
     /**
      * Send Password Reset Link Email
      */
@@ -252,16 +315,15 @@ class AuthController extends Controller
         ]);
     }
 
-
     /**
      * Verify Current Auth Token and Return Clean User Data
      */
-   public function verify(Request $request)
-{
-    return response()->json([
-        'user' => $this->buildUserPayload($request->user()),
-    ]);
-}
+    public function verify(Request $request)
+    {
+        return response()->json([
+            'user' => $this->buildUserPayload($request->user()),
+        ]);
+    }
 
     /**
      * Change authenticated user's password

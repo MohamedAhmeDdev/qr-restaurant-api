@@ -13,40 +13,36 @@ use Illuminate\Support\Str;
 
 class MenuItemController extends Controller
 {
-public function index(Request $request): JsonResponse
-{
-    $restaurant = $request->attributes->get('restaurant');
+    public function index(Request $request): JsonResponse
+    {
+        $restaurant = $request->attributes->get('restaurant');
 
-    $query = MenuItem::where('restaurant_id', $restaurant->id)
-        ->with(['category:id,name,slug', 'modifierGroups.options']);
+        $query = MenuItem::where('restaurant_id', $restaurant->id)
+            ->with(['category:id,name,slug', 'modifierGroups.options']);
 
-    // 1. Filter by category
-    if ($request->filled('category_id')) {
-        $query->where('category_id', $request->category_id);
+        if ($request->filled('category_id')) {
+            $query->where('category_id', $request->category_id);
+        }
+
+        if ($request->boolean('only_available')) {
+            $query->where('is_available', true);
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('description', 'like', "%{$search}%");
+            });
+        }
+
+        $perPage = $request->integer('per_page', 15);
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => $query->orderBy('sort_order')->orderBy('name')->paginate($perPage),
+        ]);
     }
-
-    // 2. Filter by availability status
-    if ($request->boolean('only_available')) {
-        $query->where('is_available', true);
-    }
-
-    // 3. Backend search query
-    if ($request->filled('search')) {
-        $search = $request->search;
-        $query->where(function ($q) use ($search) {
-            $q->where('name', 'like', "%{$search}%")
-              ->orWhere('description', 'like', "%{$search}%");
-        });
-    }
-
-    // 4. Dynamic pagination size
-    $perPage = $request->integer('per_page', 15);
-
-    return response()->json([
-        'status' => 'success',
-        'data'   => $query->orderBy('sort_order')->orderBy('name')->paginate($perPage),
-    ]);
-}
 
     public function store(Request $request): JsonResponse
     {
@@ -57,8 +53,9 @@ public function index(Request $request): JsonResponse
             'name'              => 'required|string|max:255',
             'description'       => 'nullable|string|max:2000',
             'price'             => 'required|numeric|min:0|max:999999.99',
-            'image'             => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'image'             => 'required|image|mimes:jpeg,png,jpg,webp|max:2048',
             'is_available'      => 'nullable|boolean',
+            'is_active'         => 'nullable|boolean', // Added
             'sort_order'        => 'nullable|integer|min:0',
             'modifier_groups'   => 'nullable|array',
             'modifier_groups.*' => 'integer|exists:modifier_groups,id',
@@ -89,11 +86,11 @@ public function index(Request $request): JsonResponse
                 'price'         => $validated['price'],
                 'image'         => $imagePath ? Storage::url($imagePath) : null,
                 'is_available'  => $validated['is_available'] ?? true,
+                'is_active'     => $validated['is_active'] ?? true, // Added default true
                 'sort_order'    => $validated['sort_order'] ?? 0,
             ]);
 
             if (! empty($validated['modifier_groups'])) {
-                // Scope modifier groups strictly to the current restaurant to prevent unauthorized linking
                 $validGroupIds = ModifierGroup::where('restaurant_id', $restaurant->id)
                     ->whereIn('id', $validated['modifier_groups'])
                     ->pluck('id');
@@ -152,6 +149,7 @@ public function index(Request $request): JsonResponse
             'price'             => 'sometimes|numeric|min:0|max:999999.99',
             'image'             => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
             'is_available'      => 'sometimes|boolean',
+            'is_active'         => 'sometimes|boolean', // Added
             'sort_order'        => 'sometimes|integer|min:0',
             'modifier_groups'   => 'sometimes|array',
             'modifier_groups.*' => 'integer|exists:modifier_groups,id',
@@ -187,7 +185,6 @@ public function index(Request $request): JsonResponse
         $menuItem->update($validated);
 
         if (array_key_exists('modifier_groups', $validated)) {
-            // Scope modifier groups strictly to current restaurant
             $validGroupIds = ModifierGroup::where('restaurant_id', $restaurant->id)
                 ->whereIn('id', $validated['modifier_groups'] ?? [])
                 ->pluck('id');
@@ -199,6 +196,50 @@ public function index(Request $request): JsonResponse
             'status'  => 'success',
             'message' => 'Menu item updated successfully.',
             'data'    => $menuItem->load('modifierGroups.options'),
+        ]);
+    }
+
+    // Toggle is_active state
+    public function toggleActive(Request $request, int $id): JsonResponse
+    {
+        $restaurant = $request->attributes->get('restaurant');
+        $menuItem = MenuItem::where('restaurant_id', $restaurant->id)->find($id);
+
+        if (! $menuItem) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Menu item not found.',
+            ], 404);
+        }
+
+        $menuItem->update(['is_active' => ! $menuItem->is_active]);
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Item status updated to ' . ($menuItem->is_active ? 'active' : 'inactive') . '.',
+            'data'    => $menuItem,
+        ]);
+    }
+
+    // Toggle is_available state
+    public function toggleAvailability(Request $request, int $id): JsonResponse
+    {
+        $restaurant = $request->attributes->get('restaurant');
+        $menuItem = MenuItem::where('restaurant_id', $restaurant->id)->find($id);
+
+        if (! $menuItem) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Menu item not found.',
+            ], 404);
+        }
+
+        $menuItem->update(['is_available' => ! $menuItem->is_available]);
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Availability updated to ' . ($menuItem->is_available ? 'available' : 'sold out') . '.',
+            'data'    => $menuItem,
         ]);
     }
 
