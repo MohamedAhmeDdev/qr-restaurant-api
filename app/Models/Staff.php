@@ -14,7 +14,6 @@ class Staff extends Model
     protected $fillable = [
         'user_id',
         'restaurant_id',
-        'status',
         'shift_type',
     ];
 

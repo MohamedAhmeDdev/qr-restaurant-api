@@ -13,10 +13,10 @@ class Restaurant extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $fillable = ['name', 'slug', 'organization_id', 'is_active', 'status', 'logo'];
+    protected $fillable = ['name', 'slug', 'organization_id', 'is_active', 'status', 'logo','currency','background_image',];
 
     protected $casts = [
-        'is_active' => 'boolean',
+        'status' => 'string',
     ];
 
     public function organization(): BelongsTo

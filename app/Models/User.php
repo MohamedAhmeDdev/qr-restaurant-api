@@ -38,20 +38,22 @@ class User extends Authenticatable
         ];
     }
 
-    public function roles(): BelongsToMany
-    {
-        return $this->belongsToMany(Role::class, 'user_roles')->withTimestamps();
-    }
+   public function roles(): BelongsToMany
+{
+    return $this->belongsToMany(Role::class, 'user_roles')
+                ->withPivot('status')
+                ->withTimestamps();
+}
 
     /**
      * Directly assigned restaurants (cashiers, waiters, managers, etc.).
      */
-    public function assignedRestaurants(): BelongsToMany
-    {
-        return $this->belongsToMany(Restaurant::class, 'staff', 'user_id', 'restaurant_id')
-                    ->withPivot('id', 'status', 'shift_type', 'deleted_at')
-                    ->withTimestamps();
-    }
+   public function assignedRestaurants(): BelongsToMany
+{
+    return $this->belongsToMany(Restaurant::class, 'staff', 'user_id', 'restaurant_id')
+                ->withPivot('id', 'shift_type', 'deleted_at')
+                ->withTimestamps();
+}
 
     public function ownedOrganizations(): HasMany
     {
@@ -67,4 +69,11 @@ class User extends Authenticatable
     {
         return $this->roles()->where('slug', $slug)->exists();
     }
+
+    
+    public function isSuperAdmin(): bool
+{
+ 
+    return $this->roles()->where('slug', 'super_admin')->exists();
+}
 }

@@ -19,9 +19,11 @@ class ModifierGroup extends Model
         'min_select',
         'max_select',
         'is_required',
+        'is_active',
     ];
 
     protected $casts = [
+        'is_active'   => 'boolean',
         'is_required' => 'boolean',
         'min_select'  => 'integer',
         'max_select'  => 'integer',

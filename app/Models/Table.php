@@ -13,6 +13,7 @@ class Table extends Model
 
     protected $fillable = [
         'restaurant_id',
+        'table_number',
         'name',
         'slug',
         'token',
@@ -23,8 +24,9 @@ class Table extends Model
     ];
 
     protected $casts = [
-        'capacity'  => 'integer',
-        'is_active' => 'boolean',
+        'table_number' => 'integer',
+        'capacity'     => 'integer',
+        'is_active'    => 'boolean',
     ];
 
     public function restaurant(): BelongsTo
