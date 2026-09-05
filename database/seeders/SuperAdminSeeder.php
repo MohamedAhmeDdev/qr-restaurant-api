@@ -30,8 +30,10 @@ class SuperAdminSeeder extends Seeder
             ]
         );
 
-        // 3. Attach role without creating duplicate pivot records
-        $user->roles()->syncWithoutDetaching([$role->id]);
+        // 3. Attach role with pivot column data
+        $user->roles()->syncWithoutDetaching([
+            $role->id => ['status' => 'active']
+        ]);
 
         $this->command->info('Super Admin created: superadmin@platform.com / password123');
     }
