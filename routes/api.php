@@ -29,18 +29,12 @@ Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 Route::get('/verify-invite', [RegistrationController::class, 'verifyToken']);
 Route::post('/register', [RegistrationController::class, 'register']);
 
-
 Route::middleware('guest.table')->group(function () {
-   Route::get('/{restaurantSlug}/{tableSlug}/menu', [PublicMenuController::class, 'index']);
-
+    Route::get('/{restaurantSlug}/{tableSlug}/menu', [PublicMenuController::class, 'index']);
     Route::get('/{restaurantSlug}/{tableSlug}/menu/items/{itemId}', [PublicMenuController::class, 'show']);
-       Route::get('/orders', [GuestOrderController::class, 'index']);
+    Route::get('/orders', [GuestOrderController::class, 'index']);
     Route::get('/orders/{id}', [GuestOrderController::class, 'show']);
-  
-
 });
-
-
 
 /*
 |--------------------------------------------------------------------------
@@ -48,84 +42,79 @@ Route::middleware('guest.table')->group(function () {
 |--------------------------------------------------------------------------
 */
 Route::middleware('auth:sanctum')->group(function () {
-    //Settings APIs
-    Route::get('/user/2fa-status', [AuthController::class, 'getTwoFactorStatus']);
-    Route::post('/user/toggle-2fa', [AuthController::class, 'toggleTwoFactor']);
-    Route::post('/user/change-password', [AuthController::class, 'changePassword']);
-
-
     Route::get('/verify', [AuthController::class, 'verify']);
     Route::post('/logout', [AuthController::class, 'logout']);
 
- 
+    // Settings APIs
+    Route::get('/user/2fa-status', [AuthController::class, 'getTwoFactorStatus']);
+    Route::post('/user/toggle-2fa', [AuthController::class, 'toggleTwoFactor']);
+    Route::post('/user/change-password', [AuthController::class, 'changePassword']);
+    Route::get('/roles/options', [RoleController::class, 'options']);
 
+    /*
+    |--------------------------------------------------------------------------
+    | Super Admin APIs (Global Management)
+    |--------------------------------------------------------------------------
+    */
+    Route::middleware('super_admin')->group(function () {
+        // Permission Management
+        Route::prefix('/permissions')->group(function () {
+            Route::get('/group', [PermissionController::class, 'getGroups']);
+            Route::get('/', [PermissionController::class, 'index']);
+            Route::post('/', [PermissionController::class, 'store'])
+                ->middleware('permission:permission.create');
+            Route::get('/{permission}', [PermissionController::class, 'show']);
+            Route::put('/{permission}', [PermissionController::class, 'update'])
+                ->middleware('permission:permission.update');
+            Route::delete('/{permission}', [PermissionController::class, 'destroy'])
+                ->middleware('permission:permission.delete');
+        });
 
+        // Role Management
+        Route::prefix('/roles')->group(function () {
+            Route::get('/', [RoleController::class, 'index']);
+            Route::post('/', [RoleController::class, 'store'])
+                ->middleware('permission:role.create');
+            Route::get('/{role}', [RoleController::class, 'show']);
+            Route::put('/{role}', [RoleController::class, 'update'])
+                ->middleware('permission:role.update');
+            Route::delete('/{role}', [RoleController::class, 'destroy'])
+                ->middleware('permission:role.delete');
+            Route::post('/{role}/sync-permissions', [RoleController::class, 'syncPermissions'])
+                ->middleware('permission:permission.assign');
+        });
+
+        // Organizations & Invitations
+        Route::get('/organizations', [OrganizationController::class, 'index']);
+        Route::get('/organizations/{id}', [OrganizationController::class, 'show']);
+
+        // Invitation
+        Route::get('/invitations', [OrganizationController::class, 'getInvitations']);
+        Route::post('/invitations/send', [RegistrationController::class, 'sendInvite'])
+            ->middleware('permission:invitation.send');
+        Route::post('/invitations/resend', [RegistrationController::class, 'resendInvite'])
+            ->middleware('permission:invitation.send');
+
+        // Master Restaurant Activation Toggle
+        Route::patch('/restaurants/{id}/toggle-active', [RestaurantController::class, 'toggleActive']);
+    });
 
     /*
     |--------------------------------------------------------------------------
-    | Super Admin APIs
+    | Restaurant APIs
     |--------------------------------------------------------------------------
     */
-    // Permission Management Routes (Super Admin Only)
-    Route::prefix('/permissions')->middleware('super_admin')->group(function () {
-        Route::get('/group', [PermissionController::class, 'getGroups']);
-        Route::get('/', [PermissionController::class, 'index']);
-        Route::post('/', [PermissionController::class, 'store'])
-            ->middleware('permission:permission.create');
-        Route::get('/{permission}', [PermissionController::class, 'show']);
-        Route::put('/{permission}', [PermissionController::class, 'update'])
-            ->middleware('permission:permission.update');
-        Route::delete('/{permission}', [PermissionController::class, 'destroy'])
-            ->middleware('permission:permission.delete');
-    });
-
-    // Role Management Routes (Super Admin Only)
-       Route::get('/roles/options', [RoleController::class, 'options']);
-    Route::prefix('/roles')->middleware('super_admin')->group(function () {
-        Route::get('/', [RoleController::class, 'index']);
-        Route::post('/', [RoleController::class, 'store'])
-            ->middleware('permission:role.create');
-        Route::get('/{role}', [RoleController::class, 'show']);
-        Route::put('/{role}', [RoleController::class, 'update'])
-            ->middleware('permission:role.update');
-        Route::delete('/{role}', [RoleController::class, 'destroy'])
-            ->middleware('permission:role.delete');
-        Route::post('/{role}/sync-permissions', [RoleController::class, 'syncPermissions'])
-            ->middleware('permission:permission.assign');
-    });
-
-    // Get all organizations + owners + restaurant counts
-    Route::get('/organizations', [OrganizationController::class, 'index']);
-
-    // Get specific organization + list of all its restaurants
-    Route::get('/organizations/{id}', [OrganizationController::class, 'show']);
-
-
-    // Get invitations list
-    Route::get('/invitations', [OrganizationController::class, 'getInvitations']);
-    Route::post('/invitations/send', [RegistrationController::class, 'sendInvite'])
-        ->middleware('permission:invitation.send');
-    Route::post('/invitations/resend', [RegistrationController::class, 'resendInvite'])
-        ->middleware('permission:invitation.send');
-
-
-
-
-
-
-    /*
---------------------------------------------------------------------------
-    | restaurant admin APIs
-    |--------------------------------------------------------------------------
-    */
-
     Route::get('/restaurants', [RestaurantController::class, 'index'])
         ->middleware('permission:restaurant.view');
+    Route::post('/onboarding/complete', [RegistrationController::class, 'completeOnboarding'])
+        ->middleware('permission:restaurant.update');
     Route::post('/restaurants', [RestaurantController::class, 'store'])
         ->middleware('permission:restaurant.create');
     Route::get('/restaurants/{id}', [RestaurantController::class, 'show'])
         ->middleware('permission:restaurant.view');
     Route::put('/restaurants/{id}', [RestaurantController::class, 'update'])
+        ->middleware('permission:restaurant.update');
+    Route::patch('/restaurants/{id}/toggle-status', [RestaurantController::class, 'toggleStatus'])
         ->middleware('permission:restaurant.update');
     Route::delete('/restaurants/{id}', [RestaurantController::class, 'destroy'])
         ->middleware('permission:restaurant.delete');
@@ -135,17 +124,12 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:restaurant.force_delete');
 
     /*
---------------------------------------------------------------------------
+    |--------------------------------------------------------------------------
     | Active Workspace-Scoped Endpoints (Requires X-Restaurant-Slug Header)
     |--------------------------------------------------------------------------
     */
     Route::middleware(['restaurant.access'])->group(function () {
-        /*
-|--------------------------------------------------------------------------
-|  Staff Management
-|--------------------------------------------------------------------------
-*/
-
+        // Staff Management
         Route::get('/staff', [StaffController::class, 'index'])
             ->middleware('permission:staff.view');
         Route::post('/staff', [StaffController::class, 'store'])
@@ -161,11 +145,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/staff/{id}/force', [StaffController::class, 'forceDelete'])
             ->middleware('permission:staff.delete');
 
-        /*
-|--------------------------------------------------------------------------
-tables
-|--------------------------------------------------------------------------
-*/
+        // Tables Management
         Route::get('/tables', [TableController::class, 'index'])
             ->middleware('permission:table.view');
         Route::post('/tables', [TableController::class, 'store'])
@@ -176,14 +156,10 @@ tables
             ->middleware('permission:table.update');
         Route::delete('/tables/{id}', [TableController::class, 'destroy'])
             ->middleware('permission:table.delete');
-        Route::post('/{id}/regenerate-qr', [TableController::class, 'regenerateQr'])
+        Route::post('/tables/{id}/regenerate-qr', [TableController::class, 'regenerateQr'])
             ->middleware('permission:table.update');
 
-        /*
-|--------------------------------------------------------------------------
- Categories
-|--------------------------------------------------------------------------
-*/
+        // Categories Management
         Route::get('/option/categories', [CategoryController::class, 'option']);
         Route::get('/categories', [CategoryController::class, 'index'])
             ->middleware('permission:category.view');
@@ -195,15 +171,10 @@ tables
             ->middleware('permission:category.view');
         Route::put('/categories/{id}', [CategoryController::class, 'update'])
             ->middleware('permission:category.update');
-
         Route::delete('/categories/{id}', [CategoryController::class, 'destroy'])
             ->middleware('permission:category.delete');
 
-        /*
-|--------------------------------------------------------------------------
-| Modifier Groups 
-|--------------------------------------------------------------------------
-*/
+        // Modifier Groups Management
         Route::get('/option/modifier-groups', [ModifierGroupController::class, 'option']);
         Route::get('/modifier-groups', [ModifierGroupController::class, 'index'])
             ->middleware('permission:modifier.view');
@@ -216,11 +187,7 @@ tables
         Route::delete('/modifier-groups/{id}', [ModifierGroupController::class, 'destroy'])
             ->middleware('permission:modifier.delete');
 
-        /*
-|--------------------------------------------------------------------------
-| Menu Items
-|--------------------------------------------------------------------------
-*/
+        // Menu Items Management
         Route::get('/menu-items', [MenuItemController::class, 'index'])
             ->middleware('permission:menu.view');
         Route::post('/menu-items', [MenuItemController::class, 'store'])
@@ -229,11 +196,15 @@ tables
             ->middleware('permission:menu.view');
         Route::put('/menu-items/{id}', [MenuItemController::class, 'update'])
             ->middleware('permission:menu.update');
+        Route::patch('/menu-items/{id}/toggle-active', [MenuItemController::class, 'toggleActive'])
+            ->middleware('permission:menu.update');
+        Route::patch('/menu-items/{id}/toggle-availability', [MenuItemController::class, 'toggleAvailability'])
+            ->middleware('permission:menu.update');
         Route::delete('/menu-items/{id}', [MenuItemController::class, 'destroy'])
             ->middleware('permission:menu.delete');
     });
 
-
+    // Orders Management
     Route::get('/orders', [OrderController::class, 'index'])
         ->middleware('permission:order.view');
     Route::get('/orders/{id}', [OrderController::class, 'show'])
