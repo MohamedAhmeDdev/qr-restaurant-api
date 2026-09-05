@@ -33,9 +33,15 @@ class RoleSeeder extends Seeder
             ],
 
             [
-                'name' => 'Staff',
-                'slug' => 'staff',
-                'description' => 'Restaurant operational staff',
+                'name' => 'Cashier',
+                'slug' => 'cashier',
+                'description' => 'Restaurant operational access',
+                'is_system' => true,
+            ],
+             [
+                'name' => 'waiter',
+                'slug' => 'waiter',
+                'description' => 'Restaurant operational access',
                 'is_system' => true,
             ],
         ];
