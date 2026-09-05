@@ -2,22 +2,22 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     public function up(): void
     {
+        // 1. PostgreSQL safe change for the status enum column
+        DB::statement('ALTER TABLE "restaurants" DROP CONSTRAINT IF EXISTS "restaurants_status_check";');
+        DB::statement('ALTER TABLE "restaurants" ALTER COLUMN "status" TYPE VARCHAR(255);');
+        DB::statement('ALTER TABLE "restaurants" ALTER COLUMN "status" SET DEFAULT \'active\';');
+        DB::statement('ALTER TABLE "restaurants" ADD CONSTRAINT "restaurants_status_check" CHECK ("status" IN (\'active\', \'suspended\', \'pending\'));');
+
+        // 2. Add the remaining columns normally
         Schema::table('restaurants', function (Blueprint $table) {
-            // Update or add the status enum column
-            $table->enum('status', ['active', 'suspended', 'pending'])
-                  ->default('active')
-                  ->change();
-
-            // Add currency code (defaulting to USD / ISO 4217 standard 3-letter code)
             $table->string('currency', 3)->default('USD')->after('status');
-
-            // Add background image column (nullable as restaurants may not set one immediately)
             $table->string('background_image')->nullable()->after('logo');
         });
     }
@@ -26,9 +26,8 @@ return new class extends Migration
     {
         Schema::table('restaurants', function (Blueprint $table) {
             $table->dropColumn(['currency', 'background_image']);
-            
-            // Revert status type back if necessary
-            $table->string('status')->change();
         });
+
+        DB::statement('ALTER TABLE "restaurants" DROP CONSTRAINT IF EXISTS "restaurants_status_check";');
     }
 };
