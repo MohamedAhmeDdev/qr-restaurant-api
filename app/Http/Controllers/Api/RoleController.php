@@ -11,6 +11,21 @@ use Illuminate\Support\Str;
 
 class RoleController extends Controller
 {
+   public function options(Request $request): JsonResponse
+{
+    $roles = Role::query()
+        ->whereNotIn('slug', ['super_admin', 'restaurant_admin'])
+        ->select(['id', 'name', 'slug', 'description'])
+        ->orderBy('name')
+        ->get();
+
+    return response()->json([
+        'status'  => 'success',
+        'message' => 'Assignable roles retrieved successfully.',
+        'data'    => $roles,
+    ]);
+}
+
     /**
      * List all roles with permission counts or relations.
      */

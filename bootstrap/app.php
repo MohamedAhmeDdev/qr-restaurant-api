@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Middleware\CheckPermission;
+use App\Http\Middleware\EnsureGuestTableAccess;
+use App\Http\Middleware\EnsureRestaurantAccess;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\SetActiveRestaurant;
 use Illuminate\Foundation\Application;
@@ -16,15 +18,17 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-       $middleware->alias([
-        'super_admin' => EnsureSuperAdmin::class,
-        'permission'  => CheckPermission::class,
-        'active.restaurant' => SetActiveRestaurant::class,
-    ]);
+        $middleware->alias([
+            'super_admin' => EnsureSuperAdmin::class,
+            'permission'  => CheckPermission::class,
+            'restaurant.access' => EnsureRestaurantAccess::class,
+            'guest.table'       => EnsureGuestTableAccess::class,
+
+        ]);
 
 
 
-       
+
 
         $middleware->redirectGuestsTo(function (Request $request) {
             if ($request->is('api/*')) {

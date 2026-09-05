@@ -14,6 +14,48 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+
+    /**
+     * Build the standard user payload.
+     * For staff roles, includes assigned restaurants + organization.
+     */
+    private function buildUserPayload(User $user): array
+    {
+        $user->load('roles');
+        $role = $user->roles->first()?->slug;
+
+        $payload = [
+            'id'    => $user->id,
+            'name'  => $user->name,
+            'email' => $user->email,
+            'role'  => $role,
+        ];
+
+        // Staff roles receive assigned restaurant data
+        if (! in_array($role, ['super_admin', 'restaurant_admin'])) {
+            $assignedRestaurants = $user->assignedRestaurants()
+                ->with('organization:id,name,slug')
+                ->get([
+                    'restaurants.id',
+                    'restaurants.organization_id',
+                    'restaurants.name',
+                    'restaurants.slug',
+                ]);
+
+            $firstRestaurant = $assignedRestaurants->first();
+
+            $payload['organization'] = $firstRestaurant?->organization ? [
+                'id'   => $firstRestaurant->organization->id,
+                'name' => $firstRestaurant->organization->name,
+                'slug' => $firstRestaurant->organization->slug,
+            ] : null;
+
+            $payload['restaurants'] = $assignedRestaurants->makeHidden('organization');
+        }
+
+        return $payload;
+    }
+
     /**
      * Handle User Login (Checks if 2FA is Enabled)
      */
@@ -32,7 +74,37 @@ class AuthController extends Controller
             ]);
         }
 
-        // --- Check 2FA Status ---
+        // 1. Account Deactivation Check
+        if (isset($user->is_active) && ! $user->is_active) {
+            throw ValidationException::withMessages([
+                'email' => ['Your account has been deactivated.'],
+            ]);
+        }
+
+        // 2. Restaurant Workspace Check (Non-Admins)
+        if (! $user->isSuperAdmin() && ! $user->ownedOrganizations()->exists()) {
+            $staffRecords = $user->assignedRestaurants()
+                ->whereNull('staff.deleted_at')
+                ->get();
+
+            if ($staffRecords->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'email' => ['Your account is not assigned to any restaurant workspace.'],
+                ]);
+            }
+
+            $hasActiveRestaurant = $staffRecords->contains(function ($restaurant) {
+                return $restaurant->pivot->status === 'active' && $restaurant->is_active && $restaurant->status === 'active';
+            });
+
+            if (! $hasActiveRestaurant) {
+                throw ValidationException::withMessages([
+                    'email' => ['Your staff account is inactive or your assigned restaurant workspace is suspended.'],
+                ]);
+            }
+        }
+
+        // 2FA required
         if ($user->two_factor_enabled) {
             $code = (string) rand(100000, 999999);
             $user->update([
@@ -49,22 +121,13 @@ class AuthController extends Controller
             ]);
         }
 
-        // --- Standard Login (2FA Disabled) ---
         $user->tokens()->delete();
         $token = $user->createToken('auth-token')->plainTextToken;
-
-        // Dynamically retrieve single role
-        $role = $user->roles()->first()?->slug;
 
         return response()->json([
             'two_factor_required' => false,
             'message' => 'Login successful',
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'role' => $role,
-            ],
+            'user' => $this->buildUserPayload($user),   // <-- now includes restaurants for staff
             'token' => $token,
         ]);
     }
@@ -117,6 +180,36 @@ class AuthController extends Controller
             ]);
         }
 
+        // 1. Account Deactivation Check
+        if (isset($user->is_active) && ! $user->is_active) {
+            throw ValidationException::withMessages([
+                'email' => ['Your account has been deactivated.'],
+            ]);
+        }
+
+        // 2. Restaurant Workspace Check (Non-Admins)
+        if (! $user->isSuperAdmin() && ! $user->ownedOrganizations()->exists()) {
+            $staffRecords = $user->assignedRestaurants()
+                ->whereNull('staff.deleted_at')
+                ->get();
+
+            if ($staffRecords->isEmpty()) {
+                throw ValidationException::withMessages([
+                    'email' => ['Your account is not assigned to any restaurant workspace.'],
+                ]);
+            }
+
+            $hasActiveRestaurant = $staffRecords->contains(function ($restaurant) {
+                return $restaurant->pivot->status === 'active' && $restaurant->is_active && $restaurant->status === 'active';
+            });
+
+            if (! $hasActiveRestaurant) {
+                throw ValidationException::withMessages([
+                    'email' => ['Your staff account is inactive or your assigned restaurant workspace is suspended.'],
+                ]);
+            }
+        }
+
         if (! $user->two_factor_code || ! $user->two_factor_expires_at || now()->gt($user->two_factor_expires_at)) {
             throw ValidationException::withMessages([
                 'code' => ['Your 2FA code has expired. Please log in again to receive a new code.'],
@@ -129,27 +222,17 @@ class AuthController extends Controller
             ]);
         }
 
-        // Clear 2FA code
         $user->update([
             'two_factor_code' => null,
             'two_factor_expires_at' => null,
         ]);
 
-        // Issue Sanctum Token
         $user->tokens()->delete();
         $token = $user->createToken('auth-token')->plainTextToken;
 
-        // Dynamically retrieve single role
-        $role = $user->roles()->first()?->slug;
-
         return response()->json([
             'message' => 'Login successful',
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'role' => $role,
-            ],
+            'user' => $this->buildUserPayload($user),   // <-- now includes restaurants for staff
             'token' => $token,
         ]);
     }
@@ -237,74 +320,8 @@ class AuthController extends Controller
      */
     public function verify(Request $request)
     {
-        $user = $request->user()->load('roles');
-        $userRole = $user->roles->first()?->slug;
-
-        // 1. Super Admin Role
-        if ($userRole === 'super_admin') {
-            return response()->json([
-                'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'role' => $userRole,
-                ],
-            ]);
-        }
-
-        // 2. Organization Owner / Restaurant Admin
-        $ownedOrg = $user->ownedOrganizations()->with(['restaurants' => function ($query) {
-            $query->select('id', 'organization_id', 'name', 'slug', 'logo', 'status', 'is_active');
-        }])->first();
-
-        if ($ownedOrg) {
-            return response()->json([
-                'user' => [
-                    'id' => $user->id,
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'role' => $userRole,
-                    'organization' => [
-                        'id' => $ownedOrg->id,
-                        'name' => $ownedOrg->name,
-                        'slug' => $ownedOrg->slug,
-                    ],
-                    'restaurants' => $ownedOrg->restaurants,
-                ],
-            ]);
-        }
-
-        // 3. Operational Staff (Cashier, Waiter, Manager, etc.)
-        $assignedRestaurants = $user->assignedRestaurants()
-            ->with('organization:id,name,slug')
-            ->get([
-                'restaurants.id',
-                'restaurants.organization_id',
-                'restaurants.name',
-                'restaurants.slug',
-            ]);
-
-        $firstRestaurant = $assignedRestaurants->first();
-        $organization = $firstRestaurant?->organization ? [
-            'id' => $firstRestaurant->organization->id,
-            'name' => $firstRestaurant->organization->name,
-            'slug' => $firstRestaurant->organization->slug,
-        ] : null;
-
-        $restaurantsPayload = $assignedRestaurants->map(function ($restaurant) {
-            unset($restaurant->organization);
-            return $restaurant;
-        });
-
         return response()->json([
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
-                'email' => $user->email,
-                'role' => $userRole,
-                'organization' => $organization,
-                'restaurants' => $restaurantsPayload,
-            ],
+            'user' => $this->buildUserPayload($request->user()),
         ]);
     }
 
