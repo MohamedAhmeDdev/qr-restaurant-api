@@ -1,7 +1,8 @@
 FROM php:8.4-fpm-alpine
 
-# 1. Install system dependencies & build packages
+# 1. Install system dependencies, build packages & SSL root certificates
 RUN apk add --no-cache \
+    ca-certificates \
     git \
     curl \
     libpng-dev \
@@ -12,7 +13,8 @@ RUN apk add --no-cache \
     icu-dev \
     icu-libs \
     postgresql-dev \
-    $PHPIZE_DEPS
+    $PHPIZE_DEPS \
+    && update-ca-certificates
 
 # 2. Install PHP extensions
 RUN docker-php-ext-install pdo pdo_mysql pdo_pgsql bcmath zip gd intl \
