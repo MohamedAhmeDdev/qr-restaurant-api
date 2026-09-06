@@ -84,16 +84,18 @@ Route::middleware('auth:sanctum')->group(function () {
                 ->middleware('permission:permission.assign');
         });
 
-        // Organizations & Invitations
+        // Organizations
         Route::get('/organizations', [OrganizationController::class, 'index']);
         Route::get('/organizations/{id}', [OrganizationController::class, 'show']);
 
         // Invitation
+        Route::post('/invitations/send', [OrganizationController::class, 'sendInvite'])
+            ->middleware('permission:invitation.send');
+        Route::post('/invitations/resend', [OrganizationController::class, 'resendInvite'])
+            ->middleware('permission:invitation.send');
         Route::get('/invitations', [OrganizationController::class, 'getInvitations']);
-        Route::post('/invitations/send', [RegistrationController::class, 'sendInvite'])
-            ->middleware('permission:invitation.send');
-        Route::post('/invitations/resend', [RegistrationController::class, 'resendInvite'])
-            ->middleware('permission:invitation.send');
+       Route::delete('/invitations/{id}', [OrganizationController::class, 'deleteInvitation']);
+     
 
         // Master Restaurant Activation Toggle
         Route::patch('/restaurants/{id}/toggle-active', [RestaurantController::class, 'toggleActive']);
