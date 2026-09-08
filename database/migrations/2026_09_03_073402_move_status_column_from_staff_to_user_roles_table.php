@@ -34,7 +34,7 @@ return new class extends Migration
 
         // 2. Re-add status column back to staff table
         Schema::table('staff', function (Blueprint $table) {
-            $table->enum('status', ['active', 'on_leave', 'deactivated'])
+            $table->enum('status', ['active', 'on_leave','suspended','deactivated'])
                   ->default('active')
                   ->after('restaurant_id');
         });

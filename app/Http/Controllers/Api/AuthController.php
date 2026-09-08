@@ -89,7 +89,7 @@ class AuthController extends Controller
 
             if ($staffRecords->isEmpty()) {
                 throw ValidationException::withMessages([
-                    'email' => ['Your account is not assigned to any restaurant workspace.'],
+                    'email' => ['Your account is not linked to an active workspace, or it may have been deleted. Please contact support for assistance.'],
                 ]);
             }
 
@@ -195,7 +195,7 @@ class AuthController extends Controller
 
             if ($staffRecords->isEmpty()) {
                 throw ValidationException::withMessages([
-                    'email' => ['Your account is not assigned to any restaurant workspace.'],
+                    'email' => ['Your account is not linked to an active workspace, or it may have been deleted. Please contact support for assistance.'],
                 ]);
             }
 

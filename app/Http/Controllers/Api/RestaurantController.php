@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Restaurant;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -13,7 +14,7 @@ class RestaurantController extends Controller
     /**
      * Display a listing of restaurants belonging to the user's organization.
      */
-    public function index(Request $request)
+    public function index(Request $request): JsonResponse
     {
         $user = $request->user();
         $ownedOrg = $user->ownedOrganizations()->first();
@@ -21,7 +22,7 @@ class RestaurantController extends Controller
         if (! $ownedOrg) {
             return response()->json([
                 'status' => 'success',
-                'data' => [],
+                'data'   => [],
             ]);
         }
 
@@ -49,21 +50,21 @@ class RestaurantController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data' => $query->get(),
+            'data'   => $query->get(),
         ]);
     }
 
     /**
      * Store a newly created restaurant.
      */
-    public function store(Request $request)
+    public function store(Request $request): JsonResponse
     {
         $user = $request->user();
         $ownedOrg = $user->ownedOrganizations()->first();
 
         if (! $ownedOrg) {
             return response()->json([
-                'status' => 'error',
+                'status'  => 'error',
                 'message' => 'No organization found for this user.',
             ], 422);
         }
@@ -89,11 +90,10 @@ class RestaurantController extends Controller
 
         $slug = $this->generateUniqueSlug($validated['name']);
 
-        $logoUrl = $logoPath ? Storage::url($logoPath) : null;
-        $bgUrl   = $bgPath ? Storage::url($bgPath) : null;
+        $logoUrl  = $logoPath ? Storage::url($logoPath) : null;
+        $bgUrl    = $bgPath ? Storage::url($bgPath) : null;
         $currency = strtoupper($validated['currency']);
 
-        // Auto-assign 'pending' if essential onboarding profile fields are missing
         $status = $validated['status'] ?? $this->determineOperationalStatus($logoUrl, $bgUrl, $currency);
 
         $restaurant = Restaurant::create([
@@ -108,16 +108,16 @@ class RestaurantController extends Controller
         ]);
 
         return response()->json([
-            'status' => 'success',
+            'status'  => 'success',
             'message' => 'Restaurant created successfully.',
-            'data' => $restaurant,
+            'data'    => $restaurant,
         ], 201);
     }
 
     /**
      * Show details of a specific restaurant.
      */
-    public function show(Request $request, $id)
+    public function show(Request $request, int $id): JsonResponse
     {
         $user = $request->user();
         $ownedOrg = $user->ownedOrganizations()->first();
@@ -134,14 +134,14 @@ class RestaurantController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data' => $restaurant->load('organization:id,name,slug'),
+            'data'   => $restaurant->load('organization:id,name,slug'),
         ]);
     }
 
     /**
      * Update a restaurant.
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, int $id): JsonResponse
     {
         $user = $request->user();
         $ownedOrg = $user->ownedOrganizations()->first();
@@ -158,8 +158,8 @@ class RestaurantController extends Controller
 
         $validated = $request->validate([
             'name'             => 'sometimes|required|string|max:255',
-            'logo'             => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
-            'background_image' => 'sometimes|required|image|mimes:jpeg,png,jpg,webp|max:4096',
+            'logo'             => 'sometimes|image|mimes:jpeg,png,jpg,webp|max:2048',
+            'background_image' => 'sometimes|image|mimes:jpeg,png,jpg,webp|max:4096',
             'currency'         => 'sometimes|required|string|size:3',
             'is_active'        => 'sometimes|boolean',
             'status'           => 'sometimes|string|in:active,suspended,pending',
@@ -167,20 +167,14 @@ class RestaurantController extends Controller
 
         // Handle Logo Update
         if ($request->hasFile('logo')) {
-            if ($restaurant->logo) {
-                $oldPath = str_replace('/storage/', '', $restaurant->logo);
-                Storage::disk('public')->delete($oldPath);
-            }
+            $this->deleteStoredFile($restaurant->logo);
             $logoPath = $request->file('logo')->store('restaurants/logos', 'public');
             $validated['logo'] = Storage::url($logoPath);
         }
 
         // Handle Background Image Update
         if ($request->hasFile('background_image')) {
-            if ($restaurant->background_image) {
-                $oldBgPath = str_replace('/storage/', '', $restaurant->background_image);
-                Storage::disk('public')->delete($oldBgPath);
-            }
+            $this->deleteStoredFile($restaurant->background_image);
             $bgPath = $request->file('background_image')->store('restaurants/backgrounds', 'public');
             $validated['background_image'] = Storage::url($bgPath);
         }
@@ -195,7 +189,6 @@ class RestaurantController extends Controller
 
         $restaurant->fill($validated);
 
-        // Recalculate status dynamically if not explicitly suspended by owner
         if ($restaurant->status !== 'suspended' && ! isset($validated['status'])) {
             $restaurant->status = $this->determineOperationalStatus(
                 $restaurant->logo,
@@ -207,16 +200,16 @@ class RestaurantController extends Controller
         $restaurant->save();
 
         return response()->json([
-            'status' => 'success',
+            'status'  => 'success',
             'message' => 'Restaurant updated successfully.',
-            'data' => $restaurant,
+            'data'    => $restaurant,
         ]);
     }
 
     /**
      * Soft delete a restaurant.
      */
-    public function destroy(Request $request, $id)
+    public function destroy(Request $request, int $id): JsonResponse
     {
         $user = $request->user();
         $ownedOrg = $user->ownedOrganizations()->first();
@@ -231,10 +224,11 @@ class RestaurantController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Restaurant not found.'], 404);
         }
 
+        // Soft delete restaurant - keep logos & backgrounds intact for potential restoration
         $restaurant->delete();
 
         return response()->json([
-            'status' => 'success',
+            'status'  => 'success',
             'message' => 'Restaurant moved to trash (soft deleted).',
         ]);
     }
@@ -242,7 +236,7 @@ class RestaurantController extends Controller
     /**
      * Restore a soft-deleted restaurant.
      */
-    public function restore(Request $request, $id)
+    public function restore(Request $request, int $id): JsonResponse
     {
         $user = $request->user();
         $ownedOrg = $user->ownedOrganizations()->first();
@@ -262,16 +256,16 @@ class RestaurantController extends Controller
         $restaurant->restore();
 
         return response()->json([
-            'status' => 'success',
+            'status'  => 'success',
             'message' => 'Restaurant restored successfully.',
-            'data' => $restaurant,
+            'data'    => $restaurant,
         ]);
     }
 
     /**
      * Permanently delete a restaurant and remove stored images.
      */
-    public function forceDelete(Request $request, $id)
+    public function forceDelete(Request $request, int $id): JsonResponse
     {
         $user = $request->user();
         $ownedOrg = $user->ownedOrganizations()->first();
@@ -288,28 +282,22 @@ class RestaurantController extends Controller
             return response()->json(['status' => 'error', 'message' => 'Restaurant not found.'], 404);
         }
 
-        if ($restaurant->logo) {
-            $oldPath = str_replace('/storage/', '', $restaurant->logo);
-            Storage::disk('public')->delete($oldPath);
-        }
-
-        if ($restaurant->background_image) {
-            $oldBgPath = str_replace('/storage/', '', $restaurant->background_image);
-            Storage::disk('public')->delete($oldBgPath);
-        }
+        // Clean up files from public disk
+        $this->deleteStoredFile($restaurant->logo);
+        $this->deleteStoredFile($restaurant->background_image);
 
         $restaurant->forceDelete();
 
         return response()->json([
-            'status' => 'success',
+            'status'  => 'success',
             'message' => 'Restaurant permanently deleted.',
         ]);
     }
 
     /**
-     * OWNER TOGGLE: Operational suspension toggle (active <-> suspended)
+     * Operational status toggle (active <-> suspended)
      */
-    public function toggleStatus(Request $request, $id)
+    public function toggleStatus(Request $request, int $id): JsonResponse
     {
         $user = $request->user();
         $ownedOrg = $user->ownedOrganizations()->first();
@@ -336,16 +324,16 @@ class RestaurantController extends Controller
         $restaurant->update(['status' => $newStatus]);
 
         return response()->json([
-            'status' => 'success',
+            'status'  => 'success',
             'message' => "Restaurant operational status updated to '{$newStatus}'.",
-            'data' => $restaurant,
+            'data'    => $restaurant,
         ]);
     }
 
     /**
-     * SUPER ADMIN TOGGLE: Master activation toggle (is_active: true <-> false)
+     * Master activation toggle (is_active: true <-> false)
      */
-    public function toggleActive(Request $request, $id)
+    public function toggleActive(Request $request, int $id): JsonResponse
     {
         $restaurant = Restaurant::withTrashed()->find($id);
 
@@ -365,9 +353,9 @@ class RestaurantController extends Controller
         $restaurant->update(['is_active' => $newActiveState]);
 
         return response()->json([
-            'status' => 'success',
-            'message' => 'Restaurant ' . ($newActiveState ? 'activated' : 'deactivated') . ' by Super Admin.',
-            'data' => $restaurant,
+            'status'  => 'success',
+            'message' => 'Restaurant ' . ($newActiveState ? 'activated' : 'deactivated') . '.',
+            'data'    => $restaurant,
         ]);
     }
 
@@ -381,6 +369,17 @@ class RestaurantController extends Controller
         }
 
         return 'active';
+    }
+
+    /**
+     * Helper to purge a file using its full public URL.
+     */
+    private function deleteStoredFile(?string $url): void
+    {
+        if ($url) {
+            $path = str_replace('/storage/', '', $url);
+            Storage::disk('public')->delete($path);
+        }
     }
 
     private function generateUniqueSlug(string $name, ?int $ignoreId = null): string
