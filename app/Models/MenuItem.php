@@ -6,10 +6,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class MenuItem extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'restaurant_id',
@@ -43,7 +44,6 @@ class MenuItem extends Model
 
     public function modifierGroups(): BelongsToMany
     {
-     
         return $this->belongsToMany(ModifierGroup::class, 'menu_item_modifier_group');
     }
 }

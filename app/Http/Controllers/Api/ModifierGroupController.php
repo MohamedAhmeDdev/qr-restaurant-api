@@ -210,7 +210,7 @@ class ModifierGroupController extends Controller
 
         return response()->json([
             'status'  => 'success',
-            'message' => 'Modifier group deleted successfully.',
+            'message' => 'Modifier group moved to trash successfully.',
         ]);
     }
 }

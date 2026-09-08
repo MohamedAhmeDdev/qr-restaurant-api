@@ -55,7 +55,7 @@ class MenuItemController extends Controller
             'price'             => 'required|numeric|min:0|max:999999.99',
             'image'             => 'required|image|mimes:jpeg,png,jpg,webp|max:2048',
             'is_available'      => 'nullable|boolean',
-            'is_active'         => 'nullable|boolean', // Added
+            'is_active'         => 'nullable|boolean',
             'sort_order'        => 'nullable|integer|min:0',
             'modifier_groups'   => 'nullable|array',
             'modifier_groups.*' => 'integer|exists:modifier_groups,id',
@@ -86,7 +86,7 @@ class MenuItemController extends Controller
                 'price'         => $validated['price'],
                 'image'         => $imagePath ? Storage::url($imagePath) : null,
                 'is_available'  => $validated['is_available'] ?? true,
-                'is_active'     => $validated['is_active'] ?? true, // Added default true
+                'is_active'     => $validated['is_active'] ?? true,
                 'sort_order'    => $validated['sort_order'] ?? 0,
             ]);
 
@@ -149,7 +149,7 @@ class MenuItemController extends Controller
             'price'             => 'sometimes|numeric|min:0|max:999999.99',
             'image'             => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
             'is_available'      => 'sometimes|boolean',
-            'is_active'         => 'sometimes|boolean', // Added
+            'is_active'         => 'sometimes|boolean',
             'sort_order'        => 'sometimes|integer|min:0',
             'modifier_groups'   => 'sometimes|array',
             'modifier_groups.*' => 'integer|exists:modifier_groups,id',
@@ -199,7 +199,6 @@ class MenuItemController extends Controller
         ]);
     }
 
-    // Toggle is_active state
     public function toggleActive(Request $request, int $id): JsonResponse
     {
         $restaurant = $request->attributes->get('restaurant');
@@ -221,7 +220,6 @@ class MenuItemController extends Controller
         ]);
     }
 
-    // Toggle is_available state
     public function toggleAvailability(Request $request, int $id): JsonResponse
     {
         $restaurant = $request->attributes->get('restaurant');
@@ -256,17 +254,15 @@ class MenuItemController extends Controller
             ], 404);
         }
 
-        if ($menuItem->image) {
-            $oldPath = str_replace('/storage/', '', $menuItem->image);
-            Storage::disk('public')->delete($oldPath);
-        }
+        // NO Storage::disk('public')->delete() HERE:
+        // Preserves stored image on soft-delete so it restores intact if recovered from trash.
 
         $menuItem->modifierGroups()->detach();
         $menuItem->delete();
 
         return response()->json([
             'status'  => 'success',
-            'message' => 'Menu item deleted successfully.',
+            'message' => 'Menu item moved to trash successfully.',
         ]);
     }
 

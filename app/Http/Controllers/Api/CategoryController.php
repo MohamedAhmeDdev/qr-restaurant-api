@@ -168,7 +168,7 @@ public function reorder(Request $request): JsonResponse
     ]);
 }
     
-    public function destroy(Request $request, int $id): JsonResponse
+public function destroy(Request $request, int $id): JsonResponse
     {
         $restaurant = $request->attributes->get('restaurant');
 
@@ -185,7 +185,7 @@ public function reorder(Request $request): JsonResponse
 
         return response()->json([
             'status'  => 'success',
-            'message' => 'Category deleted successfully.',
+            'message' => 'Category moved to trash successfully.',
         ]);
     }
 

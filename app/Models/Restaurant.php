@@ -13,17 +13,52 @@ class Restaurant extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $fillable = ['name', 'slug', 'organization_id', 'is_active', 'status', 'logo','currency','background_image',];
+    protected $fillable = ['name', 'slug', 'organization_id', 'is_active', 'status', 'logo', 'currency', 'background_image'];
 
     protected $casts = [
         'status' => 'string',
     ];
 
+    protected static function booted(): void
+    {
+        static::deleting(function (Restaurant $restaurant) {
+            if ($restaurant->isForceDeleting()) {
+                $restaurant->categories()->forceDelete();
+                $restaurant->menuItems()->forceDelete();
+                  $restaurant->modifierGroups()->each(function ($group) {
+                    $group->options()->forceDelete();
+                    $group->forceDelete();
+                });
+                $restaurant->tables()->forceDelete();
+                $restaurant->staff()->forceDelete();
+            } else {
+                $restaurant->categories()->delete();
+                $restaurant->menuItems()->delete();
+                   $restaurant->modifierGroups()->each(function ($group) {
+                    $group->options()->delete();
+                    $group->delete();
+                });
+                $restaurant->tables()->delete();
+                $restaurant->staff()->delete();
+            }
+        });
+
+        static::restored(function (Restaurant $restaurant) {
+            $restaurant->categories()->onlyTrashed()->restore();
+            $restaurant->menuItems()->onlyTrashed()->restore();
+                $restaurant->modifierGroups()->each(function ($group) {
+                    $group->options()->restore();
+                    $group->restore();
+                });
+            $restaurant->tables()->onlyTrashed()->restore();
+            $restaurant->staff()->onlyTrashed()->restore();
+        });
+    }
+
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organizations::class, 'organization_id');
     }
-
 
     public function users(): BelongsToMany
     {
@@ -31,7 +66,6 @@ class Restaurant extends Model
             ->withPivot('status', 'shift_type')
             ->withTimestamps();
     }
-
 
     public function staff(): HasMany
     {
@@ -55,11 +89,11 @@ class Restaurant extends Model
 
     public function modifierGroups(): HasMany
     {
-        return $this->hasMany(ModifierGroup::class)->orderBy('sort_order');
+        return $this->hasMany(ModifierGroup::class);
     }
 
     public function orders(): HasMany
-{
-    return $this->hasMany(Order::class)->latest();
-}
+    {
+        return $this->hasMany(Order::class)->latest();
+    }
 }
