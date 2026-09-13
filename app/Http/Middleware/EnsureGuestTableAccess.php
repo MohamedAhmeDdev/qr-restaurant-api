@@ -49,7 +49,7 @@ class EnsureGuestTableAccess
             ], 403);
         }
 
-        $token = $request->query('token') ?? $request->header('X-Table-Token');
+        $token = $request->query('token');
         if (! $token || ! hash_equals((string) $table->token, (string) $token)) {
             return response()->json([
                 'status'  => 'error',
