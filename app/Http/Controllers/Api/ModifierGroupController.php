@@ -52,7 +52,7 @@ class ModifierGroupController extends Controller
             });
         }
 
-        $perPage = $request->integer('per_page', 12);
+        $perPage = $request->integer('per_page', 15);
 
         return response()->json([
             'status' => 'success',
