@@ -21,10 +21,6 @@ class TableController extends Controller
 
         $query = Table::where('restaurant_id', $restaurant->id);
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
-        }
-
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
@@ -55,9 +51,15 @@ class TableController extends Controller
             ],
             'name'      => 'required|string|max:255',
             'capacity'  => 'nullable|integer|min:1|max:50',
-            'status'    => 'nullable|string|in:available,occupied,reserved,cleaning',
             'is_active' => 'nullable|boolean',
         ]);
+
+          if (Table::withTrashed()->where('restaurant_id', $restaurant->id)->where('name', $validated['name'])->exists()) {
+        return response()->json([
+            'status'  => 'error',
+            'message' => 'A Table with this name already exists or has been previously deleted.',
+        ], 422);
+    }
 
         $slug  = $this->generateUniqueSlug($restaurant->id, $validated['name']);
         $token = Str::random(12);
@@ -69,7 +71,6 @@ class TableController extends Controller
             'slug'          => $slug,
             'token'         => $token,
             'capacity'      => $validated['capacity'] ?? 2,
-            'status'        => $validated['status'] ?? 'available',
             'is_active'     => $validated['is_active'] ?? true,
             'qr_code'       => $this->buildQrSvg($restaurant->slug, $slug, $token),
         ]);
@@ -124,7 +125,6 @@ class TableController extends Controller
             ],
             'name'      => 'sometimes|string|max:255',
             'capacity'  => 'sometimes|integer|min:1|max:50',
-            'status'    => 'sometimes|string|in:available,occupied,reserved,cleaning',
             'is_active' => 'sometimes|boolean',
         ]);
 

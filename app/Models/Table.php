@@ -19,7 +19,6 @@ class Table extends Model
         'token',
         'capacity',
         'qr_code',
-        'status',
         'is_active',
     ];
 
