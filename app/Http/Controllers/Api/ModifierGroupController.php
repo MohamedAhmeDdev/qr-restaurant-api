@@ -77,6 +77,13 @@ class ModifierGroupController extends Controller
             'options.*.is_available' => 'nullable|boolean',
         ]);
 
+         if (ModifierGroup::withTrashed()->where('restaurant_id', $restaurant->id)->where('name', $validated['name'])->exists()) {
+        return response()->json([
+            'status'  => 'error',
+            'message' => 'A modifier group with this name already exists or has been previously deleted.',
+        ], 422);
+    }
+
         $group = DB::transaction(function () use ($restaurant, $validated) {
             $group = ModifierGroup::create([
                 'restaurant_id' => $restaurant->id,

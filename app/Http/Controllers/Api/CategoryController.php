@@ -66,6 +66,13 @@ public function option(Request $request): JsonResponse
             'sort_order'  => 'nullable|integer|min:0',
             'is_active'   => 'nullable|boolean',
         ]);
+        
+         if (Category::withTrashed()->where('restaurant_id', $restaurant->id)->where('name', $validated['name'])->exists()) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'A category with this name already exists or has been previously deleted.',
+            ], 422);
+        }
 
         $slug = $this->generateUniqueSlug($restaurant->id, $validated['name']);
 

@@ -61,6 +61,14 @@ class MenuItemController extends Controller
             'modifier_groups.*' => 'integer|exists:modifier_groups,id',
         ]);
 
+           if (MenuItem::withTrashed()->where('restaurant_id', $restaurant->id)->where('name', $validated['name'])->exists()) {
+        return response()->json([
+            'status'  => 'error',
+            'message' => 'A menu item with this name already exists or has been previously deleted.',
+        ], 422);
+    }
+
+
         $category = $restaurant->categories()->find($validated['category_id']);
         if (! $category) {
             return response()->json([
