@@ -198,6 +198,34 @@ class PermissionSeeder extends Seeder
                 'description' => 'Delete category',
             ],
 
+
+            //modifiers
+            [
+                'name' => 'View Modifier',
+                'slug' => 'modifier.view',
+                'group' => 'modifier',
+                'description' => 'View modifier',
+            ],
+            [
+                'name' => 'Create Modifier',
+                'slug' => 'modifier.create',
+                'group' => 'modifier',
+                'description' => 'Create modifier',
+            ],
+            [
+                'name' => 'Update Modifier',
+                'slug' => 'modifier.update',
+                'group' => 'modifier',
+                'description' => 'Update modifier',
+            ],
+            [
+                'name' => 'Delete Modifier',
+                'slug' => 'modifier.delete',
+                'group' => 'modifier',
+                'description' => 'Delete modifier',
+            ],
+
+
             // Menu Management
             [
                 'name' => 'View Menu',

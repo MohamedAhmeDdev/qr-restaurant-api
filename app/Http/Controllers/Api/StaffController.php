@@ -205,15 +205,15 @@ class StaffController extends Controller
         }
 
         $validated = $request->validate([
-            'name'           => 'required|string|max:255',
-            'email'          => 'required|email|max:255',
-            'password'       => 'nullable|string|min:8',
-            'role_id'        => 'nullable',
-            'role'           => 'nullable',
-            'status'         => 'sometimes|string|in:active,suspended,on_leave,deactivated',
-            'restaurant_ids' => 'required|array|min:1',
+            'name'             => 'required|string|max:255',
+            'email'            => 'required|email|max:255',
+            'password'         => 'nullable|string|min:8',
+            'role_id'          => 'nullable',
+            'role'             => 'nullable',
+            'status'           => 'sometimes|string|in:active,suspended,on_leave,deactivated',
+            'restaurant_ids'   => 'required|array|min:1',
             'restaurant_ids.*' => 'integer|exists:restaurants,id',
-            'shift_type'     => 'required|string|in:day,night,full_time,flexible',
+            'shift_type'       => 'required|string|in:day,night,full_time,flexible',
         ]);
 
         $restaurantIds = Restaurant::where('organization_id', $ownedOrg->id)->pluck('id');
@@ -226,20 +226,23 @@ class StaffController extends Controller
             ], 403);
         }
 
+        // FIX: Explicitly check if user already exists (User has no soft deletes)
+        if (User::where('email', $validated['email'])->exists()) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'This email address is already registered in the system. Please use a unique email address',
+            ], 422);
+        }
+
         return DB::transaction(function () use ($validated, $ownedOrg) {
             $plainPassword = $validated['password'] ?? Str::random(12);
 
-            $user = User::firstOrCreate(
-                ['email' => $validated['email']],
-                [
-                    'name'     => $validated['name'],
-                    'password' => Hash::make($plainPassword),
-                ]
-            );
-
-            if ($user->name !== $validated['name']) {
-                $user->update(['name' => $validated['name']]);
-            }
+            // FIX: Use strict create() instead of firstOrCreate()
+            $user = User::create([
+                'name'     => $validated['name'],
+                'email'    => $validated['email'],
+                'password' => Hash::make($plainPassword),
+            ]);
 
             $status = $validated['status'] ?? 'active';
             $roleInput = $validated['role_id'] ?? $validated['role'] ?? 'staff';
@@ -252,23 +255,11 @@ class StaffController extends Controller
             }
 
             foreach ($validated['restaurant_ids'] as $restaurantId) {
-                $pivot = Staff::withTrashed()
-                    ->where('user_id', $user->id)
-                    ->where('restaurant_id', $restaurantId)
-                    ->first();
-
-                if ($pivot) {
-                    if ($pivot->trashed()) {
-                        $pivot->restore();
-                    }
-                    $pivot->update(['shift_type' => $validated['shift_type']]);
-                } else {
-                    Staff::create([
-                        'user_id'       => $user->id,
-                        'restaurant_id' => $restaurantId,
-                        'shift_type'    => $validated['shift_type'],
-                    ]);
-                }
+                Staff::create([
+                    'user_id'       => $user->id,
+                    'restaurant_id' => $restaurantId,
+                    'shift_type'    => $validated['shift_type'],
+                ]);
             }
 
             $firstRestaurant = Restaurant::find($validated['restaurant_ids'][0]);
@@ -277,7 +268,7 @@ class StaffController extends Controller
             $user->load([
                 'roles' => fn ($q) => $q->withPivot('status'),
                 'assignedRestaurants' => fn ($q) => $q->whereIn('restaurants.id', $validated['restaurant_ids'])
-                    ->withPivot('shift_type', 'deleted_at') // Added deleted_at
+                    ->withPivot('shift_type', 'deleted_at')
             ]);
 
             return response()->json([
@@ -636,29 +627,31 @@ class StaffController extends Controller
             'password'   => 'nullable|string|min:8',
             'role_id'    => 'nullable',
             'role'       => 'nullable',
-            'status'     => 'sometimes|string|in:active,on_leave,deactivated',
+            'status'     => 'sometimes|string|in:active,suspended,on_leave,deactivated',
             'shift_type' => 'required|string|in:day,night,full_time,flexible',
         ]);
+
+        // FIX: Explicitly check if user already exists (User has no soft deletes)
+        if (User::where('email', $validated['email'])->exists()) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'This email address is already registered in the system. Please use a unique email address',
+            ], 422);
+        }
 
         return DB::transaction(function () use ($validated, $restaurant) {
             $plainPassword = $validated['password'] ?? Str::random(12);
 
-            $user = User::firstOrCreate(
-                ['email' => $validated['email']],
-                [
-                    'name'     => $validated['name'],
-                    'password' => Hash::make($plainPassword),
-                ]
-            );
-
-            if ($user->name !== $validated['name']) {
-                $user->update(['name' => $validated['name']]);
-            }
+            // FIX: Use strict create() instead of firstOrCreate()
+            $user = User::create([
+                'name'     => $validated['name'],
+                'email'    => $validated['email'],
+                'password' => Hash::make($plainPassword),
+            ]);
 
             $status = $validated['status'] ?? 'active';
-
             $roleInput = $validated['role_id'] ?? $validated['role'] ?? 'staff';
-            $role      = $this->resolveRole($roleInput);
+            $role = $this->resolveRole($roleInput);
 
             if ($role) {
                 $user->roles()->sync([
@@ -666,32 +659,18 @@ class StaffController extends Controller
                 ]);
             }
 
-            $pivot = Staff::withTrashed()
-                ->where('user_id', $user->id)
-                ->where('restaurant_id', $restaurant->id)
-                ->first();
-
-            $shiftType = $validated['shift_type'] ?? 'day';
-
-            if ($pivot) {
-                if ($pivot->trashed()) {
-                    $pivot->restore();
-                }
-                $pivot->update(['shift_type' => $shiftType]);
-            } else {
-                Staff::create([
-                    'user_id'       => $user->id,
-                    'restaurant_id' => $restaurant->id,
-                    'shift_type'    => $shiftType,
-                ]);
-            }
+            Staff::create([
+                'user_id'       => $user->id,
+                'restaurant_id' => $restaurant->id,
+                'shift_type'    => $validated['shift_type'],
+            ]);
 
             $user->notify(new StaffWelcomeNotification($plainPassword, $restaurant));
 
             $user->load([
                 'roles' => fn ($q) => $q->withPivot('status'),
                 'assignedRestaurants' => fn ($q) => $q->where('restaurants.id', $restaurant->id)
-                    ->withPivot('shift_type', 'deleted_at') // Added deleted_at
+                    ->withPivot('shift_type', 'deleted_at')
             ]);
 
             return response()->json([

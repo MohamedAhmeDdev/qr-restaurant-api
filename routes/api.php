@@ -35,8 +35,8 @@ Route::post('/organization/restore', [OrganizationController::class, 'restore'])
 Route::middleware('guest.table')->group(function () {
     Route::get('/{restaurantSlug}/{tableSlug}/menu', [PublicMenuController::class, 'index']);
     Route::get('/{restaurantSlug}/{tableSlug}/menu/items/{itemId}', [PublicMenuController::class, 'show']);
-    Route::get('/orders', [GuestOrderController::class, 'index']);
-    Route::get('/orders/{id}', [GuestOrderController::class, 'show']);
+    Route::get('guest/orders/current', [GuestOrderController::class, 'current']);
+    Route::get('/guest/orders', [GuestOrderController::class, 'store']);
 });
 
 /*
