@@ -21,6 +21,13 @@ class TableController extends Controller
 
         $query = Table::where('restaurant_id', $restaurant->id);
 
+        // Dynamic Trash Filtering
+        if ($request->boolean('with_trashed')) {
+            $query->withTrashed();
+        } elseif ($request->boolean('only_trashed')) {
+            $query->onlyTrashed();
+        }
+
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
@@ -193,6 +200,53 @@ class TableController extends Controller
         return response()->json([
             'status'  => 'success',
             'message' => 'Table deleted successfully.',
+        ]);
+    }
+
+
+        public function restore(Request $request, int $id): JsonResponse
+    {
+        $restaurant = $request->attributes->get('restaurant');
+
+        $table = Table::onlyTrashed()
+            ->where('restaurant_id', $restaurant->id)
+            ->find($id);
+
+        if (! $table) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Trashed table not found.',
+            ], 404);
+        }
+
+        $table->restore();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Table restored successfully.',
+        ]);
+    }
+
+    public function forceDelete(Request $request, int $id): JsonResponse
+    {
+        $restaurant = $request->attributes->get('restaurant');
+
+        $table = Table::withTrashed()
+            ->where('restaurant_id', $restaurant->id)
+            ->find($id);
+
+        if (! $table) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Table not found.',
+            ], 404);
+        }
+
+        $table->forceDelete();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Table permanently deleted.',
         ]);
     }
 

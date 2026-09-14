@@ -543,18 +543,18 @@ class StaffController extends Controller
             ->with([
                 'roles' => fn ($q) => $q->withPivot('status'),
                 'assignedRestaurants' => fn ($q) => $q->where('restaurants.id', $restaurant->id)
-                    ->withPivot('shift_type', 'deleted_at') // Added deleted_at
+                    ->withPivot('shift_type', 'deleted_at')
             ]);
 
-        // FIXED: Dynamically handle trashed / with_trashed filters
-        if ($request->filled('trashed')) {
+        // Standardized Trash Filtering
+        if ($request->boolean('with_trashed')) {
+            $query->whereHas('assignedRestaurants', function ($q) use ($restaurant) {
+                $q->where('restaurants.id', $restaurant->id);
+            });
+        } elseif ($request->boolean('only_trashed')) {
             $query->whereHas('assignedRestaurants', function ($q) use ($restaurant) {
                 $q->where('restaurants.id', $restaurant->id)
                   ->whereNotNull('staff.deleted_at');
-            });
-        } elseif ($request->filled('with_trashed')) {
-            $query->whereHas('assignedRestaurants', function ($q) use ($restaurant) {
-                $q->where('restaurants.id', $restaurant->id);
             });
         } else {
             $query->whereHas('assignedRestaurants', function ($q) use ($restaurant) {

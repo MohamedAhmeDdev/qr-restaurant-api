@@ -20,6 +20,13 @@ class MenuItemController extends Controller
         $query = MenuItem::where('restaurant_id', $restaurant->id)
             ->with(['category:id,name,slug', 'modifierGroups.options']);
 
+        // Dynamic Trash Filtering
+        if ($request->boolean('with_trashed')) {
+            $query->withTrashed();
+        } elseif ($request->boolean('only_trashed')) {
+            $query->onlyTrashed();
+        }
+
         if ($request->filled('category_id')) {
             $query->where('category_id', $request->category_id);
         }
@@ -274,6 +281,63 @@ class MenuItemController extends Controller
         ]);
     }
 
+        public function restore(Request $request, int $id): JsonResponse
+    {
+        $restaurant = $request->attributes->get('restaurant');
+
+        $menuItem = MenuItem::onlyTrashed()
+            ->where('restaurant_id', $restaurant->id)
+            ->find($id);
+
+        if (! $menuItem) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Trashed menu item not found.',
+            ], 404);
+        }
+
+        $menuItem->restore();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Menu item restored successfully.',
+        ]);
+    }
+
+    public function forceDelete(Request $request, int $id): JsonResponse
+    {
+        $restaurant = $request->attributes->get('restaurant');
+
+        $menuItem = MenuItem::withTrashed()
+            ->where('restaurant_id', $restaurant->id)
+            ->find($id);
+
+        if (! $menuItem) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Menu item not found.',
+            ], 404);
+        }
+
+        // 1. Detach modifier group relationships
+        $menuItem->modifierGroups()->detach();
+
+        // 2. Delete the associated image from storage
+        if ($menuItem->image) {
+            $oldPath = str_replace('/storage/', '', $menuItem->image);
+            Storage::disk('public')->delete($oldPath);
+        }
+
+        // 3. Permanently delete the record
+        $menuItem->forceDelete();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Menu item and its image permanently deleted.',
+        ]);
+    }
+
+    
     private function generateUniqueSlug(int $restaurantId, string $name, ?int $ignoreId = null): string
     {
         $base = Str::slug($name);

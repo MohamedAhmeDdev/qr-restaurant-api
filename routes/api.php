@@ -88,8 +88,11 @@ Route::middleware('auth:sanctum')->group(function () {
         });
 
         // Organizations
-        Route::get('/organizations', [OrganizationController::class, 'index']);
-        Route::get('/organizations/{id}', [OrganizationController::class, 'show']);
+        Route::get('/organizations', [OrganizationController::class, 'index'])
+         ->middleware('permission:organization.view');
+        Route::get('/organizations/{id}', [OrganizationController::class, 'show'])
+                 ->middleware('permission:organization.view');
+
 
         // Invitation
         Route::post('/invitations/send', [OrganizationController::class, 'sendInvite'])
@@ -111,10 +114,14 @@ Route::middleware('auth:sanctum')->group(function () {
     */
 
        // Organizations
-        Route::get('/organization/me', [OrganizationController::class, 'myOrganization']);
-        Route::put('/organization/me', [OrganizationController::class, 'updateMyOrganization']);
-        Route::delete('/organization/{id}', [OrganizationController::class, 'destroy']);
-        Route::delete('/organization/{id}/force-delete', [OrganizationController::class, 'forceDelete']);
+        Route::get('/organization/me', [OrganizationController::class, 'myOrganization'])
+         ->middleware('permission:organization.view');
+        Route::put('/organization/me', [OrganizationController::class, 'updateMyOrganization'])
+         ->middleware('permission:organization.update');
+        Route::delete('/organization/{id}', [OrganizationController::class, 'destroy'])
+         ->middleware('permission:organization.delete');
+        Route::delete('/organization/{id}/force-delete', [OrganizationController::class, 'forceDelete'])
+         ->middleware('permission:organization.force_delete');
 
               // Staff Management
             Route::get('/organization/staff', [StaffController::class, 'organizationIndex'])
@@ -130,7 +137,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::patch('/organization/staff/{id}/restore', [StaffController::class, 'organizationRestore'])
                 ->middleware('permission:staff.restore');
             Route::delete('/organization/staff/{id}/force', [StaffController::class, 'organizationForceDelete'])
-                ->middleware('permission:staff.delete');
+                ->middleware('permission:staff.force_delete');
 
         // Restaurant APIs
         Route::get('/restaurants', [RestaurantController::class, 'index'])
@@ -174,7 +181,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::patch('/staff/{id}/restore', [StaffController::class, 'restore'])
                 ->middleware('permission:staff.restore');
             Route::delete('/staff/{id}/force', [StaffController::class, 'forceDelete'])
-                ->middleware('permission:staff.delete');
+                ->middleware('permission:staff.force_delete');
 
             // Tables Management
             Route::get('/tables', [TableController::class, 'index'])
@@ -189,6 +196,12 @@ Route::middleware('auth:sanctum')->group(function () {
                 ->middleware('permission:table.delete');
             Route::post('/tables/{id}/regenerate-qr', [TableController::class, 'regenerateQr'])
                 ->middleware('permission:table.update');
+                Route::post('/tables/{id}/restore', [TableController::class, 'restore'])
+                                ->middleware('permission:table.restore');
+
+Route::delete('/tables/{id}/force', [TableController::class, 'forceDelete'])
+                ->middleware('permission:table.force_delete');
+
 
             // Categories Management
             Route::get('/option/categories', [CategoryController::class, 'option']);
@@ -204,6 +217,12 @@ Route::middleware('auth:sanctum')->group(function () {
                 ->middleware('permission:category.update');
             Route::delete('/categories/{id}', [CategoryController::class, 'destroy'])
                 ->middleware('permission:category.delete');
+                Route::post('/categories/{id}/restore', [CategoryController::class, 'restore'])
+                                ->middleware('permission:category.restore');
+
+Route::delete('/categories/{id}/force', [CategoryController::class, 'forceDelete'])
+                ->middleware('permission:category.force_delete');
+
 
             // Modifier Groups Management
             Route::get('/option/modifier-groups', [ModifierGroupController::class, 'option']);
@@ -217,6 +236,12 @@ Route::middleware('auth:sanctum')->group(function () {
                 ->middleware('permission:modifier.update');
             Route::delete('/modifier-groups/{id}', [ModifierGroupController::class, 'destroy'])
                 ->middleware('permission:modifier.delete');
+                Route::post('/modifier-groups/{id}/restore', [ModifierGroupController::class, 'restore'])
+                                ->middleware('permission:modifier.restore');
+
+Route::delete('/modifier-groups/{id}/force', [ModifierGroupController::class, 'forceDelete'])
+                ->middleware('permission:modifier.force_delete');
+
 
             // Menu Items Management
             Route::get('/menu-items', [MenuItemController::class, 'index'])
@@ -233,6 +258,12 @@ Route::middleware('auth:sanctum')->group(function () {
                 ->middleware('permission:menu.update');
             Route::delete('/menu-items/{id}', [MenuItemController::class, 'destroy'])
                 ->middleware('permission:menu.delete');
+                Route::post('/menu-items/{id}/restore', [MenuItemController::class, 'restore'])
+                                ->middleware('permission:menu.restore');
+
+Route::delete('/menu-items/{id}/force', [MenuItemController::class, 'forceDelete'])
+                ->middleware('permission:menu.force_delete');
+
         });
 
         // Orders Management

@@ -37,6 +37,13 @@ class ModifierGroupController extends Controller
         $query = ModifierGroup::where('restaurant_id', $restaurant->id)
             ->with('options');
 
+        // Dynamic Trash Filtering
+        if ($request->boolean('with_trashed')) {
+            $query->withTrashed();
+        } elseif ($request->boolean('only_trashed')) {
+            $query->onlyTrashed();
+        }
+
         if ($request->has('is_active')) {
             $query->where('is_active', $request->boolean('is_active'));
         }
@@ -218,6 +225,55 @@ class ModifierGroupController extends Controller
         return response()->json([
             'status'  => 'success',
             'message' => 'Modifier group moved to trash successfully.',
+        ]);
+    }
+
+
+        public function restore(Request $request, int $id): JsonResponse
+    {
+        $restaurant = $request->attributes->get('restaurant');
+
+        $group = ModifierGroup::onlyTrashed()
+            ->where('restaurant_id', $restaurant->id)
+            ->find($id);
+
+        if (! $group) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Trashed modifier group not found.',
+            ], 404);
+        }
+
+        $group->restore();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Modifier group restored successfully.',
+        ]);
+    }
+
+    public function forceDelete(Request $request, int $id): JsonResponse
+    {
+        $restaurant = $request->attributes->get('restaurant');
+
+        $group = ModifierGroup::withTrashed()
+            ->where('restaurant_id', $restaurant->id)
+            ->find($id);
+
+        if (! $group) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Modifier group not found.',
+            ], 404);
+        }
+
+        // The ModifierGroup model's booted() method will automatically 
+        // cascade the forceDelete to its options.
+        $group->forceDelete();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Modifier group and its options permanently deleted.',
         ]);
     }
 }

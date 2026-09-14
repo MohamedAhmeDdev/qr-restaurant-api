@@ -36,6 +36,13 @@ public function option(Request $request): JsonResponse
 
         $query = Category::where('restaurant_id', $restaurant->id);
 
+        // Dynamic Trash Filtering
+        if ($request->boolean('with_trashed')) {
+            $query->withTrashed();
+        } elseif ($request->boolean('only_trashed')) {
+            $query->onlyTrashed();
+        }
+
         if ($request->boolean('only_active')) {
             $query->where('is_active', true);
         }
@@ -196,6 +203,54 @@ public function destroy(Request $request, int $id): JsonResponse
         ]);
     }
 
+        public function restore(Request $request, int $id): JsonResponse
+    {
+        $restaurant = $request->attributes->get('restaurant');
+
+        $category = Category::onlyTrashed()
+            ->where('restaurant_id', $restaurant->id)
+            ->find($id);
+
+        if (! $category) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Trashed category not found.',
+            ], 404);
+        }
+
+        $category->restore();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Category restored successfully.',
+        ]);
+    }
+
+    public function forceDelete(Request $request, int $id): JsonResponse
+    {
+        $restaurant = $request->attributes->get('restaurant');
+
+        $category = Category::withTrashed()
+            ->where('restaurant_id', $restaurant->id)
+            ->find($id);
+
+        if (! $category) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Category not found.',
+            ], 404);
+        }
+
+        // The Category model's booted() method will automatically 
+        // cascade the forceDelete to its menuItems.
+        $category->forceDelete();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Category and its items permanently deleted.',
+        ]);
+    }
+    
     private function generateUniqueSlug(int $restaurantId, string $name, ?int $ignoreId = null): string
     {
         $base = Str::slug($name);
@@ -215,3 +270,5 @@ public function destroy(Request $request, int $id): JsonResponse
         return $slug;
     }
 }
+
+
