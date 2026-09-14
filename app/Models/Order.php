@@ -17,19 +17,15 @@ class Order extends Model
         'table_id',
         'order_number',
         'status',
-        'payment_status',
         'type',
         'notes',
         'subtotal',
         'total_amount',
-        'staff_id',
-        'completed_at',
     ];
 
     protected $casts = [
         'subtotal'        => 'decimal:2',
         'total_amount'    => 'decimal:2',
-        'completed_at'    => 'datetime',
     ];
 
     public function restaurant(): BelongsTo
@@ -40,11 +36,6 @@ class Order extends Model
     public function table(): BelongsTo
     {
         return $this->belongsTo(Table::class);
-    }
-
-    public function staff(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'staff_id');
     }
 
     public function items(): HasMany
