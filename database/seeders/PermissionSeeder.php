@@ -76,6 +76,45 @@ class PermissionSeeder extends Seeder
                 'description' => 'Send invitation to user',
             ],
 
+            //organization management
+            [
+                'name' => 'View Organization',
+                'slug' => 'organization.view',
+                'group' => 'organization',
+                'description' => 'View organization information',
+            ],
+            [
+                'name' => 'Create Organization',
+                'slug' => 'organization.create',
+                'group' => 'organization',
+                'description' => 'Create organization information',
+            ],
+            [
+                'name' => 'Update Organization',
+                'slug' => 'organization.update',
+                'group' => 'organization',
+                'description' => 'Update organization information',
+            ],
+            [
+                'name' => 'Delete Organization',
+                'slug' => 'organization.delete',
+                'group' => 'organization',
+                'description' => 'Delete organization information',
+            ],
+            [
+                'name' => 'Restore Organization',
+                'slug' => 'organization.restore',
+                'group' => 'organization',
+                'description' => 'Restore organization information',
+            ],
+            [
+                'name' => 'Force Delete Organization',
+                'slug' => 'organization.force_delete',
+                'group' => 'organization',
+                'description' => 'Force delete organization information',
+            ],
+
+
             // Restaurant Management
             [
                 'name' => 'View Restaurant',
@@ -145,6 +184,12 @@ class PermissionSeeder extends Seeder
                 'group' => 'staff',
                 'description' => 'Restore restaurant staff',
             ],
+            [
+                'name' => 'Force Delete Staff',
+                'slug' => 'staff.force_delete',
+                'group' => 'staff',
+                'description' => 'Force delete restaurant staff',
+            ],
 
             // Table Management
             [
@@ -170,6 +215,18 @@ class PermissionSeeder extends Seeder
                 'slug' => 'table.delete',
                 'group' => 'table',
                 'description' => 'Delete restaurant table',
+            ],
+            [
+                'name' => 'Restore Table',
+                'slug' => 'table.restore',
+                'group' => 'table',
+                'description' => 'Restore restaurant table',
+            ],
+            [
+                'name' => 'Force Delete Table',
+                'slug' => 'table.force_delete',
+                'group' => 'table',
+                'description' => 'Force delete restaurant table',
             ],
 
             // Category Management
@@ -197,7 +254,18 @@ class PermissionSeeder extends Seeder
                 'group' => 'category',
                 'description' => 'Delete category',
             ],
-
+            [
+                'name' => 'Restore Category',
+                'slug' => 'category.restore',
+                'group' => 'category',
+                'description' => 'Restore category',
+            ],
+            [
+                'name' => 'Force Delete Category',
+                'slug' => 'category.force_delete',
+                'group' => 'category',
+                'description' => 'Force delete category',
+            ],
 
             //modifiers
             [
@@ -223,6 +291,18 @@ class PermissionSeeder extends Seeder
                 'slug' => 'modifier.delete',
                 'group' => 'modifier',
                 'description' => 'Delete modifier',
+            ],
+            [
+                'name' => 'Restore Modifier',
+                'slug' => 'modifier.restore',
+                'group' => 'modifier',
+                'description' => 'Restore modifier',
+            ],
+            [
+                'name' => 'Force Delete Modifier',
+                'slug' => 'modifier.force_delete',
+                'group' => 'modifier',
+                'description' => 'Force delete modifier',
             ],
 
 
@@ -250,6 +330,18 @@ class PermissionSeeder extends Seeder
                 'slug' => 'menu.delete',
                 'group' => 'menu',
                 'description' => 'Delete menu item',
+            ],
+            [
+                'name' => 'Restore Menu',
+                'slug' => 'menu.restore',
+                'group' => 'menu',
+                'description' => 'Restore menu item',
+            ],
+            [
+                'name' => 'Force Delete Menu',
+                'slug' => 'menu.force_delete',
+                'group' => 'menu',
+                'description' => 'Force delete menu item',
             ],
 
             // Order Management
@@ -283,20 +375,17 @@ class PermissionSeeder extends Seeder
                 'group' => 'order',
                 'description' => 'Update order status',
             ],
-            
-
-            // Payment Management
             [
-                'name' => 'View Payment',
-                'slug' => 'payment.view',
-                'group' => 'payment',
-                'description' => 'View payment',
+                'name' => 'Restore Order',
+                'slug' => 'order.restore',
+                'group' => 'order',
+                'description' => 'Restore order',
             ],
             [
-                'name' => 'Process Payment',
-                'slug' => 'payment.process',
-                'group' => 'payment',
-                'description' => 'Process payment',
+                'name' => 'Force Delete Order',
+                'slug' => 'order.force_delete',
+                'group' => 'order',
+                'description' => 'Force delete order',
             ],
 
             // Report Management
