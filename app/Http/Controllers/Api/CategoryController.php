@@ -33,25 +33,27 @@ public function option(Request $request): JsonResponse
     public function index(Request $request): JsonResponse
     {
         $restaurant = $request->attributes->get('restaurant');
+        $baseQuery = Category::where('restaurant_id', $restaurant->id);
 
-        $query = Category::where('restaurant_id', $restaurant->id);
+        // 1. Calculate GLOBAL stats (unaffected by search/filters)
+        $stats = [
+            'total'    => (clone $baseQuery)->count(),
+            'active'   => (clone $baseQuery)->where('is_active', true)->whereNull('deleted_at')->count(),
+            'inactive' => (clone $baseQuery)->where('is_active', false)->whereNull('deleted_at')->count(),
+            'trash'    => (clone $baseQuery)->onlyTrashed()->count(),
+        ];
 
-        // Dynamic Trash Filtering
-        if ($request->boolean('with_trashed')) {
-            $query->withTrashed();
-        } elseif ($request->boolean('only_trashed')) {
-            $query->onlyTrashed();
-        }
-
-        if ($request->boolean('only_active')) {
-            $query->where('is_active', true);
-        }
+        // 2. Apply filters for the paginated list
+        $query = clone $baseQuery;
+        if ($request->boolean('only_active')) $query->where('is_active', true);
+        if ($request->boolean('with_trashed')) $query->withTrashed();
+        elseif ($request->boolean('only_trashed')) $query->onlyTrashed();
+        else $query->whereNull('deleted_at');
 
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+                $q->where('name', 'like', "%{$search}%")->orWhere('description', 'like', "%{$search}%");
             });
         }
 
@@ -59,6 +61,7 @@ public function option(Request $request): JsonResponse
 
         return response()->json([
             'status' => 'success',
+            'stats'  => $stats,
             'data'   => $query->orderBy('sort_order')->orderBy('name')->paginate($perPage),
         ]);
     }

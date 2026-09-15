@@ -154,7 +154,7 @@ Route::middleware('auth:sanctum')->group(function () {
             ->middleware('permission:restaurant.update');
         Route::delete('/restaurants/{id}', [RestaurantController::class, 'destroy'])
             ->middleware('permission:restaurant.delete');
-        Route::post('/restaurants/{id}/restore', [RestaurantController::class, 'restore'])
+        Route::patch('/restaurants/{id}/restore', [RestaurantController::class, 'restore'])
             ->middleware('permission:restaurant.restore');
         Route::delete('/restaurants/{id}/force', [RestaurantController::class, 'forceDelete'])
             ->middleware('permission:restaurant.force_delete');
@@ -196,7 +196,7 @@ Route::middleware('auth:sanctum')->group(function () {
                 ->middleware('permission:table.delete');
             Route::post('/tables/{id}/regenerate-qr', [TableController::class, 'regenerateQr'])
                 ->middleware('permission:table.update');
-                Route::post('/tables/{id}/restore', [TableController::class, 'restore'])
+                Route::patch('/tables/{id}/restore', [TableController::class, 'restore'])
                                 ->middleware('permission:table.restore');
 
 Route::delete('/tables/{id}/force', [TableController::class, 'forceDelete'])
@@ -217,7 +217,7 @@ Route::delete('/tables/{id}/force', [TableController::class, 'forceDelete'])
                 ->middleware('permission:category.update');
             Route::delete('/categories/{id}', [CategoryController::class, 'destroy'])
                 ->middleware('permission:category.delete');
-                Route::post('/categories/{id}/restore', [CategoryController::class, 'restore'])
+                Route::patch('/categories/{id}/restore', [CategoryController::class, 'restore'])
                                 ->middleware('permission:category.restore');
 
 Route::delete('/categories/{id}/force', [CategoryController::class, 'forceDelete'])
@@ -236,7 +236,7 @@ Route::delete('/categories/{id}/force', [CategoryController::class, 'forceDelete
                 ->middleware('permission:modifier.update');
             Route::delete('/modifier-groups/{id}', [ModifierGroupController::class, 'destroy'])
                 ->middleware('permission:modifier.delete');
-                Route::post('/modifier-groups/{id}/restore', [ModifierGroupController::class, 'restore'])
+                Route::patch('/modifier-groups/{id}/restore', [ModifierGroupController::class, 'restore'])
                                 ->middleware('permission:modifier.restore');
 
 Route::delete('/modifier-groups/{id}/force', [ModifierGroupController::class, 'forceDelete'])
@@ -258,7 +258,7 @@ Route::delete('/modifier-groups/{id}/force', [ModifierGroupController::class, 'f
                 ->middleware('permission:menu.update');
             Route::delete('/menu-items/{id}', [MenuItemController::class, 'destroy'])
                 ->middleware('permission:menu.delete');
-                Route::post('/menu-items/{id}/restore', [MenuItemController::class, 'restore'])
+                Route::patch('/menu-items/{id}/restore', [MenuItemController::class, 'restore'])
                                 ->middleware('permission:menu.restore');
 
 Route::delete('/menu-items/{id}/force', [MenuItemController::class, 'forceDelete'])

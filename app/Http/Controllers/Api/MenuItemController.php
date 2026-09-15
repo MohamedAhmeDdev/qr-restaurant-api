@@ -16,30 +16,26 @@ class MenuItemController extends Controller
     public function index(Request $request): JsonResponse
     {
         $restaurant = $request->attributes->get('restaurant');
+        $baseQuery = MenuItem::where('restaurant_id', $restaurant->id);
 
-        $query = MenuItem::where('restaurant_id', $restaurant->id)
-            ->with(['category:id,name,slug', 'modifierGroups.options']);
+        $stats = [
+            'total'    => (clone $baseQuery)->count(),
+            'active'   => (clone $baseQuery)->where('is_active', true)->whereNull('deleted_at')->count(),
+            'inactive' => (clone $baseQuery)->where('is_active', false)->whereNull('deleted_at')->count(),
+            'trash'    => (clone $baseQuery)->onlyTrashed()->count(),
+        ];
 
-        // Dynamic Trash Filtering
-        if ($request->boolean('with_trashed')) {
-            $query->withTrashed();
-        } elseif ($request->boolean('only_trashed')) {
-            $query->onlyTrashed();
-        }
+        $query = clone $baseQuery;
+        if ($request->boolean('with_trashed')) $query->withTrashed();
+        elseif ($request->boolean('only_trashed')) $query->onlyTrashed();
+        else $query->whereNull('deleted_at');
 
-        if ($request->filled('category_id')) {
-            $query->where('category_id', $request->category_id);
-        }
-
-        if ($request->boolean('only_available')) {
-            $query->where('is_available', true);
-        }
-
+        if ($request->filled('category_id')) $query->where('category_id', $request->category_id);
+        if ($request->boolean('only_available')) $query->where('is_available', true);
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+                $q->where('name', 'like', "%{$search}%")->orWhere('description', 'like', "%{$search}%");
             });
         }
 
@@ -47,7 +43,8 @@ class MenuItemController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data'   => $query->orderBy('sort_order')->orderBy('name')->paginate($perPage),
+            'stats'  => $stats,
+            'data'   => $query->with(['category:id,name,slug', 'modifierGroups.options'])->orderBy('sort_order')->orderBy('name')->paginate($perPage),
         ]);
     }
 

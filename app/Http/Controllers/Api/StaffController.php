@@ -529,14 +529,25 @@ class StaffController extends Controller
             ->whereNull('deleted_at')
             ->pluck('user_id');
 
+          
+
+        $allStaffUserIds = Staff::where('restaurant_id', $restaurant->id)->pluck('user_id')->unique();
+        $activeStaffUserIds = Staff::where('restaurant_id', $restaurant->id)->whereNull('deleted_at')->pluck('user_id')->unique();
+        $trashedStaffUserIds = Staff::where('restaurant_id', $restaurant->id)->whereNotNull('deleted_at')->pluck('user_id')->unique();
+
+        $activeCount = $activeStaffUserIds->isNotEmpty()
+            ? DB::table('user_roles')
+                ->whereIn('user_id', $activeStaffUserIds)
+                ->where('status', 'active')
+                ->count()
+            : 0;
+
+        // 3. Build the stats array
         $stats = [
-            'total'  => $baseStaffIds->count(),
-            'active' => $baseStaffIds->isNotEmpty()
-                ? DB::table('user_roles')
-                    ->whereIn('user_id', $baseStaffIds)
-                    ->where('status', 'active')
-                    ->count()
-                : 0,
+            'total'    => $allStaffUserIds->count(),
+            'active'   => $activeCount,
+            'inactive' => $activeStaffUserIds->count() - $activeCount,
+            'trash'    => $trashedStaffUserIds->count(),
         ];
 
         $query = User::select(['users.id', 'users.name', 'users.email'])

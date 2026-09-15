@@ -33,29 +33,27 @@ class ModifierGroupController extends Controller
     public function index(Request $request): JsonResponse
     {
         $restaurant = $request->attributes->get('restaurant');
+        $baseQuery = ModifierGroup::where('restaurant_id', $restaurant->id);
 
-        $query = ModifierGroup::where('restaurant_id', $restaurant->id)
-            ->with('options');
+        $stats = [
+            'total'    => (clone $baseQuery)->count(),
+            'active'   => (clone $baseQuery)->where('is_active', true)->whereNull('deleted_at')->count(),
+            'inactive' => (clone $baseQuery)->where('is_active', false)->whereNull('deleted_at')->count(),
+            'trash'    => (clone $baseQuery)->onlyTrashed()->count(),
+        ];
 
-        // Dynamic Trash Filtering
-        if ($request->boolean('with_trashed')) {
-            $query->withTrashed();
-        } elseif ($request->boolean('only_trashed')) {
-            $query->onlyTrashed();
-        }
+        $query = clone $baseQuery;
+        if ($request->boolean('with_trashed')) $query->withTrashed();
+        elseif ($request->boolean('only_trashed')) $query->onlyTrashed();
+        else $query->whereNull('deleted_at');
 
-        if ($request->has('is_active')) {
-            $query->where('is_active', $request->boolean('is_active'));
-        }
-
+        if ($request->has('is_active')) $query->where('is_active', $request->boolean('is_active'));
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
                   ->orWhere('description', 'like', "%{$search}%")
-                  ->orWhereHas('options', function ($optQuery) use ($search) {
-                      $optQuery->where('name', 'like', "%{$search}%");
-                  });
+                  ->orWhereHas('options', fn($opt) => $opt->where('name', 'like', "%{$search}%"));
             });
         }
 
@@ -63,7 +61,8 @@ class ModifierGroupController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data'   => $query->orderBy('name')->paginate($perPage),
+            'stats'  => $stats,
+            'data'   => $query->with('options')->orderBy('name')->paginate($perPage),
         ]);
     }
 

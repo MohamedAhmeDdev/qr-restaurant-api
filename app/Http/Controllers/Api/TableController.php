@@ -18,15 +18,19 @@ class TableController extends Controller
     public function index(Request $request): JsonResponse
     {
         $restaurant = $request->attributes->get('restaurant');
+        $baseQuery = Table::where('restaurant_id', $restaurant->id);
 
-        $query = Table::where('restaurant_id', $restaurant->id);
+        $stats = [
+            'total'    => (clone $baseQuery)->count(),
+            'active'   => (clone $baseQuery)->where('is_active', true)->whereNull('deleted_at')->count(),
+            'inactive' => (clone $baseQuery)->where('is_active', false)->whereNull('deleted_at')->count(),
+            'trash'    => (clone $baseQuery)->onlyTrashed()->count(),
+        ];
 
-        // Dynamic Trash Filtering
-        if ($request->boolean('with_trashed')) {
-            $query->withTrashed();
-        } elseif ($request->boolean('only_trashed')) {
-            $query->onlyTrashed();
-        }
+        $query = clone $baseQuery;
+        if ($request->boolean('with_trashed')) $query->withTrashed();
+        elseif ($request->boolean('only_trashed')) $query->onlyTrashed();
+        else $query->whereNull('deleted_at');
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -41,6 +45,7 @@ class TableController extends Controller
 
         return response()->json([
             'status' => 'success',
+            'stats'  => $stats,
             'data'   => $query->orderBy('table_number')->orderBy('name')->paginate($perPage),
         ]);
     }
