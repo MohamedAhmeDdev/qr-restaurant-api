@@ -57,7 +57,7 @@ public function option(Request $request): JsonResponse
             });
         }
 
-        $perPage = $request->integer('per_page', 50);
+        $perPage = $request->integer('per_page', 15);
 
         return response()->json([
             'status' => 'success',

@@ -525,15 +525,19 @@ class StaffController extends Controller
     {
         $restaurant = $request->get('restaurant');
 
-        $baseStaffIds = Staff::where('restaurant_id', $restaurant->id)
+        $allStaffUserIds = Staff::where('restaurant_id', $restaurant->id)
+            ->pluck('user_id')
+            ->unique();
+            
+        $activeStaffUserIds = Staff::where('restaurant_id', $restaurant->id)
             ->whereNull('deleted_at')
-            ->pluck('user_id');
-
-          
-
-        $allStaffUserIds = Staff::where('restaurant_id', $restaurant->id)->pluck('user_id')->unique();
-        $activeStaffUserIds = Staff::where('restaurant_id', $restaurant->id)->whereNull('deleted_at')->pluck('user_id')->unique();
-        $trashedStaffUserIds = Staff::where('restaurant_id', $restaurant->id)->whereNotNull('deleted_at')->pluck('user_id')->unique();
+            ->pluck('user_id')
+            ->unique();
+            
+        $trashedStaffUserIds = Staff::where('restaurant_id', $restaurant->id)
+            ->whereNotNull('deleted_at')
+            ->pluck('user_id')
+            ->unique();
 
         $activeCount = $activeStaffUserIds->isNotEmpty()
             ? DB::table('user_roles')
@@ -542,14 +546,14 @@ class StaffController extends Controller
                 ->count()
             : 0;
 
-        // 3. Build the stats array
         $stats = [
             'total'    => $allStaffUserIds->count(),
             'active'   => $activeCount,
-            'inactive' => $activeStaffUserIds->count() - $activeCount,
+            'inactive' => max(0, $activeStaffUserIds->count() - $activeCount),
             'trash'    => $trashedStaffUserIds->count(),
         ];
 
+        // 2. Build the base query
         $query = User::select(['users.id', 'users.name', 'users.email'])
             ->with([
                 'roles' => fn ($q) => $q->withPivot('status'),
@@ -559,41 +563,31 @@ class StaffController extends Controller
 
         // Standardized Trash Filtering
         if ($request->boolean('with_trashed')) {
-            $query->whereHas('assignedRestaurants', function ($q) use ($restaurant) {
-                $q->where('restaurants.id', $restaurant->id);
-            });
+            $query->whereHas('assignedRestaurants', fn ($q) => $q->where('restaurants.id', $restaurant->id));
         } elseif ($request->boolean('only_trashed')) {
-            $query->whereHas('assignedRestaurants', function ($q) use ($restaurant) {
-                $q->where('restaurants.id', $restaurant->id)
-                  ->whereNotNull('staff.deleted_at');
-            });
+            $query->whereHas('assignedRestaurants', fn ($q) => $q->where('restaurants.id', $restaurant->id)->whereNotNull('staff.deleted_at'));
         } else {
-            $query->whereHas('assignedRestaurants', function ($q) use ($restaurant) {
-                $q->where('restaurants.id', $restaurant->id)
-                  ->whereNull('staff.deleted_at');
-            });
+            $query->whereHas('assignedRestaurants', fn ($q) => $q->where('restaurants.id', $restaurant->id)->whereNull('staff.deleted_at'));
         }
 
+        // Apply Search & Filters
         $query->when($request->filled('search'), function ($q) use ($request) {
-            $search = $request->search;
-            $q->where(function ($sub) use ($search) {
-                $sub->where('name', 'like', "%{$search}%")
-                    ->orWhere('email', 'like', "%{$search}%");
+            $q->where(function ($sub) use ($request) {
+                $sub->where('name', 'like', "%{$request->search}%")
+                    ->orWhere('email', 'like', "%{$request->search}%");
             });
         });
 
         $query->when($request->filled('role_id') || $request->filled('role'), function ($q) use ($request) {
             $roleInput = $request->role_id ?? $request->role;
             $q->whereHas('roles', function ($r) use ($roleInput) {
-                $r->where(function ($sub) use ($roleInput) {
-                    if (is_numeric($roleInput)) {
-                        $sub->where('roles.id', (int) $roleInput);
-                    } else {
-                        $term = strtolower((string) $roleInput);
-                        $sub->whereRaw('LOWER(roles.slug) = ?', [$term])
-                            ->orWhereRaw('LOWER(roles.name) = ?', [$term]);
-                    }
-                });
+                if (is_numeric($roleInput)) {
+                    $r->where('roles.id', (int) $roleInput);
+                } else {
+                    $term = strtolower((string) $roleInput);
+                    $r->whereRaw('LOWER(roles.slug) = ?', [$term])
+                      ->orWhereRaw('LOWER(roles.name) = ?', [$term]);
+                }
             });
         });
 
@@ -607,14 +601,16 @@ class StaffController extends Controller
                 ->where('staff.shift_type', $request->shift_type));
         });
 
-        $perPage   = $request->integer('per_page', 15);
+        // 3. Paginate and Format (Laravel handles the JSON structure automatically!)
+        $perPage = $request->integer('per_page', 15);
+        
         $paginator = $query->latest('users.created_at')
             ->paginate($perPage)
             ->through(fn ($user) => $this->formatStaffResponse($user, $restaurant->id));
 
         return response()->json([
-            'status'     => 'success',
-            'stats'      => $stats,
+            'status' => 'success',
+            'stats'  => $stats,
             'data'       => $paginator->items(),
             'pagination' => [
                 'total'          => $paginator->total(),
