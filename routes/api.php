@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\PublicMenuController;
 use App\Http\Controllers\Api\RestaurantController;
 use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\TableController;
+use App\Http\Controllers\Api\SalesController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -264,13 +265,28 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::delete('/menu-items/{id}/force', [MenuItemController::class, 'forceDelete'])
             ->middleware('permission:menu.force_delete');
+
+
+
+        // Orders Management
+        Route::get('/orders', [OrderController::class, 'index'])
+            ->middleware('permission:order.view');
+        Route::get('/orders/{id}', [OrderController::class, 'show'])
+            ->middleware('permission:order.view');
+        Route::put('/orders/{id}/status', [OrderController::class, 'updateStatus'])
+            ->middleware('permission:order.update');
+
+
+
+        //sales
+        Route::get('/sales/dashboard', [SalesController::class, 'index'])
+            ->middleware('permission:report.view');
+
+        Route::get('/sales/stats', [SalesController::class, 'menuItemsStats'])
+            ->middleware('permission:report.view');
+
+        Route::get('/sales/menu-items', [SalesController::class, 'menuItems'])
+            ->middleware('permission:report.view');
     });
 
-    // Orders Management
-    Route::get('/orders', [OrderController::class, 'index'])
-        ->middleware('permission:order.view');
-    Route::get('/orders/{id}', [OrderController::class, 'show'])
-        ->middleware('permission:order.view');
-    Route::put('/orders/{id}/status', [OrderController::class, 'updateStatus'])
-        ->middleware('permission:order.update');
 });
