@@ -273,7 +273,7 @@ Route::middleware('auth:sanctum')->group(function () {
             ->middleware('permission:order.view');
         Route::get('/orders/{id}', [OrderController::class, 'show'])
             ->middleware('permission:order.view');
-        Route::put('/orders/{id}/status', [OrderController::class, 'updateStatus'])
+        Route::patch('/orders/{id}', [OrderController::class, 'updateStatus'])
             ->middleware('permission:order.update');
 
 
