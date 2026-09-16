@@ -47,6 +47,12 @@ class ModifierGroupController extends Controller
         elseif ($request->boolean('only_trashed')) $query->onlyTrashed();
         else $query->whereNull('deleted_at');
 
+        if ($request->filled('status') && $request->status !== 'all') {
+            $query->where('is_active', $request->status === 'active');
+        } elseif ($request->has('is_active')) {
+            $query->where('is_active', $request->boolean('is_active'));
+        }
+
         if ($request->has('is_active')) $query->where('is_active', $request->boolean('is_active'));
         if ($request->filled('search')) {
             $search = $request->search;

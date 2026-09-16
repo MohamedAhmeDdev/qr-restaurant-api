@@ -28,10 +28,21 @@ class TableController extends Controller
         ];
 
         $query = clone $baseQuery;
-        if ($request->boolean('with_trashed')) $query->withTrashed();
-        elseif ($request->boolean('only_trashed')) $query->onlyTrashed();
-        else $query->whereNull('deleted_at');
+        if ($request->boolean('with_trashed')) {
+            $query->withTrashed();
+        } elseif ($request->boolean('only_trashed')) {
+            $query->onlyTrashed();
+        } else {
+            $query->whereNull('deleted_at');
+        }
 
+        if ($request->filled('status') && $request->status !== 'all') {
+            if ($request->status === 'active') {
+                $query->where('is_active', true);
+            } elseif ($request->status === 'inactive') {
+                $query->where('is_active', false);
+            }
+        }
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
