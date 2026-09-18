@@ -269,7 +269,7 @@ class TableController extends Controller
     private function buildQrSvg(string $restaurantSlug, string $tableSlug, string $token): string
     {
         $qrUrl = rtrim(config('app.frontend_url'))
-            . "/{$restaurantSlug}/menu/{$tableSlug}?token={$token}";
+            . "/{$restaurantSlug}/{$tableSlug}/menu?token={$token}";
 
         $renderer = new ImageRenderer(
             new RendererStyle(300, 10),

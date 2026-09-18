@@ -22,7 +22,6 @@ class StoreGuestOrderRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'type'                                   => 'required|string|in:dine_in,takeaway,delivery',
             'notes'                                  => 'nullable|string|max:2000',
             'subtotal'                               => 'required|numeric|min:0',
             'total_amount'                           => 'required|numeric|min:0',

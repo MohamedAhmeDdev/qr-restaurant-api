@@ -11,6 +11,30 @@ use Illuminate\Support\Str;
 
 class RestaurantController extends Controller
 {
+
+    /**
+     * Get ONLY the currency for a specific restaurant slug.
+     */
+    public function getCurrency(string $slug): JsonResponse
+    {
+        $restaurant = Restaurant::where('slug', $slug)->first();
+
+        if (! $restaurant) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Restaurant not found.',
+            ], 404);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data'   => [
+                'currency' => $restaurant->currency
+            ],
+        ]);
+    }
+
+
     /**
      * Display a listing of restaurants belonging to the user's organization.
      */
@@ -94,8 +118,6 @@ class RestaurantController extends Controller
         $bgUrl    = $bgPath ? Storage::url($bgPath) : null;
         $currency = strtoupper($validated['currency']);
 
-        $status = $validated['status'] ?? $this->determineOperationalStatus($logoUrl, $bgUrl, $currency);
-
         $restaurant = Restaurant::create([
             'name'             => $validated['name'],
             'slug'             => $slug,
@@ -104,7 +126,7 @@ class RestaurantController extends Controller
             'background_image' => $bgUrl,
             'currency'         => $currency,
             'is_active'        => $validated['is_active'] ?? true,
-            'status'           => $status,
+            'status'           => $validated['status'] ?? 'active',
         ]);
 
         return response()->json([
@@ -187,17 +209,7 @@ class RestaurantController extends Controller
             $validated['slug'] = $this->generateUniqueSlug($validated['name'], $restaurant->id);
         }
 
-        $restaurant->fill($validated);
-
-        if ($restaurant->status !== 'suspended' && ! isset($validated['status'])) {
-            $restaurant->status = $this->determineOperationalStatus(
-                $restaurant->logo,
-                $restaurant->background_image,
-                $restaurant->currency
-            );
-        }
-
-        $restaurant->save();
+        $restaurant->update($validated);
 
         return response()->json([
             'status'  => 'success',
@@ -357,18 +369,6 @@ class RestaurantController extends Controller
             'message' => 'Restaurant ' . ($newActiveState ? 'activated' : 'deactivated') . '.',
             'data'    => $restaurant,
         ]);
-    }
-
-    /**
-     * Evaluates whether required branding/configuration attributes are present.
-     */
-    private function determineOperationalStatus(?string $logo, ?string $bgImage, ?string $currency): string
-    {
-        if (empty($logo) || empty($bgImage) || empty($currency)) {
-            return 'pending';
-        }
-
-        return 'active';
     }
 
     /**

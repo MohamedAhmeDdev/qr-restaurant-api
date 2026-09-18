@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers\Api\public;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Guest\StoreGuestOrderRequest;
@@ -59,7 +59,6 @@ public function current(Request $request): JsonResponse
                 'table_id'      => $table->id,
                 'order_number'  => $this->generateOrderNumber(),
                 'status'        => 'pending',
-                'type'          => $validated['type'],
                 'notes'         => $validated['notes'] ?? null,
                 'subtotal'      => $totals['subtotal'],
                 'total_amount'  => $totals['total_amount'],
@@ -119,12 +118,10 @@ public function current(Request $request): JsonResponse
     private function generateOrderNumber(): string
     {
         $prefix = 'ORD';
-        $random = strtoupper(Str::random(6));
-        $number = $prefix . '-' . $random;
+        $number = $prefix . '-' . random_int(100000, 999999);
 
         while (Order::where('order_number', $number)->exists()) {
-            $random = strtoupper(Str::random(6));
-            $number = $prefix . '-' . $random;
+            $number = $prefix . '-' . random_int(100000, 999999);
         }
 
         return $number;

@@ -12,8 +12,16 @@ class EnsureGuestTableAccess
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $restaurantSlug = $request->route('restaurantSlug');
-        $tableSlug      = $request->route('tableSlug');
+        // Read directly from HTTP headers instead of route parameters
+        $restaurantSlug = $request->header('X-Restaurant-Slug');
+        $tableSlug      = $request->header('X-Table-Slug');
+
+        if (! $restaurantSlug || ! $tableSlug) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Missing restaurant or table contextual headers.',
+            ], 400);
+        }
 
         $restaurant = Restaurant::where('slug', $restaurantSlug)->first();
 
@@ -49,7 +57,7 @@ class EnsureGuestTableAccess
             ], 403);
         }
 
-        $token = $request->query('token');
+        $token = $request->header('X-Table-Token');
         if (! $token || ! hash_equals((string) $table->token, (string) $token)) {
             return response()->json([
                 'status'  => 'error',

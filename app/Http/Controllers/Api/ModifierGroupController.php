@@ -212,6 +212,32 @@ class ModifierGroupController extends Controller
         ]);
     }
 
+        /**
+     * Toggle the active/inactive status of a modifier group.
+     */
+    public function toggleActive(Request $request, int $id): JsonResponse
+    {
+        $restaurant = $request->attributes->get('restaurant');
+
+        $group = ModifierGroup::where('restaurant_id', $restaurant->id)->find($id);
+
+        if (! $group) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Modifier group not found.',
+            ], 404);
+        }
+
+        $newStatus = ! $group->is_active;
+        $group->update(['is_active' => $newStatus]);
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Modifier group ' . ($newStatus ? 'activated' : 'deactivated') . ' successfully.',
+            'data'    => $group,
+        ]);
+    }
+    
     public function destroy(Request $request, int $id): JsonResponse
     {
         $restaurant = $request->attributes->get('restaurant');

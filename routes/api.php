@@ -3,14 +3,15 @@
 use App\Http\Controllers\Api\PermissionController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\CategoryController;
-use App\Http\Controllers\Api\GuestOrderController;
 use App\Http\Controllers\Api\MenuItemController;
 use App\Http\Controllers\Api\ModifierGroupController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\RegistrationController;
 use App\Http\Controllers\Api\RoleController;
 use App\Http\Controllers\Api\OrganizationController;
-use App\Http\Controllers\Api\PublicMenuController;
+use App\Http\Controllers\Api\public\GuestOrderController;
+use App\Http\Controllers\Api\public\PublicMenuController;
+use App\Http\Controllers\Api\public\PublicRestaurantController;
 use App\Http\Controllers\Api\RestaurantController;
 use App\Http\Controllers\Api\StaffController;
 use App\Http\Controllers\Api\TableController;
@@ -33,12 +34,20 @@ Route::post('/register', [RegistrationController::class, 'register']);
 
 Route::post('/organization/restore', [OrganizationController::class, 'restore']);
 
+// customer (public) displaying restaurant details
+Route::get('/guest/restaurant/{slug}', [PublicRestaurantController::class, 'show']);
+
+// restaurant currency 
+Route::get('/guest/restaurant/{slug}/currency', [RestaurantController::class, 'getCurrency']);
 
 Route::middleware('guest.table')->group(function () {
-    Route::get('/{restaurantSlug}/{tableSlug}/menu', [PublicMenuController::class, 'index']);
-    Route::get('/{restaurantSlug}/{tableSlug}/menu/items/{itemId}', [PublicMenuController::class, 'show']);
-    Route::get('guest/orders/current', [GuestOrderController::class, 'current']);
-    Route::get('/guest/orders', [GuestOrderController::class, 'store']);
+    // Menu & Items
+    Route::get('/menu', [PublicMenuController::class, 'index']);
+    Route::get('/menu/items/{itemId}', [PublicMenuController::class, 'show']);
+    
+    // Guest Orders
+    Route::get('/guest/orders/current', [GuestOrderController::class, 'current']);
+    Route::post('/guest/orders', [GuestOrderController::class, 'store']);
 });
 
 /*
@@ -235,6 +244,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/modifier-groups/{id}', [ModifierGroupController::class, 'show'])
             ->middleware('permission:modifier.view');
         Route::put('/modifier-groups/{id}', [ModifierGroupController::class, 'update'])
+            ->middleware('permission:modifier.update');
+        Route::patch('/modifier-groups/{id}/toggle-active', [ModifierGroupController::class, 'toggleActive'])
             ->middleware('permission:modifier.update');
         Route::delete('/modifier-groups/{id}', [ModifierGroupController::class, 'destroy'])
             ->middleware('permission:modifier.delete');
