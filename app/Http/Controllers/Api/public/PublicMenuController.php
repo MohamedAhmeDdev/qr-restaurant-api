@@ -91,9 +91,9 @@ public function show(Request $request, $itemId): JsonResponse
                 'modifierGroups' => function ($mQuery) {
                     $mQuery->where('is_active', true)
                         ->with([
-  
-
-                            'options'
+                            'options' => function ($oQuery) {
+                                $oQuery->where('is_available', true);
+                            },
                         ]);
                 },
             ])

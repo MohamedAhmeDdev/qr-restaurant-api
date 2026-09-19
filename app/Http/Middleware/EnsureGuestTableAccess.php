@@ -46,7 +46,7 @@ class EnsureGuestTableAccess
         if (! $table) {
             return response()->json([
                 'status'  => 'error',
-                'message' => 'Table not found or no longer active.',
+                'message' => 'Table not found.',
             ], 404);
         }
 
