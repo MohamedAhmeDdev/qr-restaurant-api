@@ -18,13 +18,31 @@ class TableController extends Controller
     public function index(Request $request): JsonResponse
     {
         $restaurant = $request->attributes->get('restaurant');
+        $baseQuery = Table::where('restaurant_id', $restaurant->id);
 
-        $query = Table::where('restaurant_id', $restaurant->id);
+        $stats = [
+            'total'    => (clone $baseQuery)->count(),
+            'active'   => (clone $baseQuery)->where('is_active', true)->whereNull('deleted_at')->count(),
+            'inactive' => (clone $baseQuery)->where('is_active', false)->whereNull('deleted_at')->count(),
+            'trash'    => (clone $baseQuery)->onlyTrashed()->count(),
+        ];
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
+        $query = clone $baseQuery;
+        if ($request->boolean('with_trashed')) {
+            $query->withTrashed();
+        } elseif ($request->boolean('only_trashed')) {
+            $query->onlyTrashed();
+        } else {
+            $query->whereNull('deleted_at');
         }
 
+        if ($request->filled('status') && $request->status !== 'all') {
+            if ($request->status === 'active') {
+                $query->where('is_active', true);
+            } elseif ($request->status === 'inactive') {
+                $query->where('is_active', false);
+            }
+        }
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
@@ -38,6 +56,7 @@ class TableController extends Controller
 
         return response()->json([
             'status' => 'success',
+            'stats'  => $stats,
             'data'   => $query->orderBy('table_number')->orderBy('name')->paginate($perPage),
         ]);
     }
@@ -55,9 +74,15 @@ class TableController extends Controller
             ],
             'name'      => 'required|string|max:255',
             'capacity'  => 'nullable|integer|min:1|max:50',
-            'status'    => 'nullable|string|in:available,occupied,reserved,cleaning',
             'is_active' => 'nullable|boolean',
         ]);
+
+          if (Table::withTrashed()->where('restaurant_id', $restaurant->id)->where('name', $validated['name'])->exists()) {
+        return response()->json([
+            'status'  => 'error',
+            'message' => 'A Table with this name already exists or has been previously deleted.',
+        ], 422);
+    }
 
         $slug  = $this->generateUniqueSlug($restaurant->id, $validated['name']);
         $token = Str::random(12);
@@ -69,7 +94,6 @@ class TableController extends Controller
             'slug'          => $slug,
             'token'         => $token,
             'capacity'      => $validated['capacity'] ?? 2,
-            'status'        => $validated['status'] ?? 'available',
             'is_active'     => $validated['is_active'] ?? true,
             'qr_code'       => $this->buildQrSvg($restaurant->slug, $slug, $token),
         ]);
@@ -124,7 +148,6 @@ class TableController extends Controller
             ],
             'name'      => 'sometimes|string|max:255',
             'capacity'  => 'sometimes|integer|min:1|max:50',
-            'status'    => 'sometimes|string|in:available,occupied,reserved,cleaning',
             'is_active' => 'sometimes|boolean',
         ]);
 
@@ -196,10 +219,57 @@ class TableController extends Controller
         ]);
     }
 
+
+        public function restore(Request $request, int $id): JsonResponse
+    {
+        $restaurant = $request->attributes->get('restaurant');
+
+        $table = Table::onlyTrashed()
+            ->where('restaurant_id', $restaurant->id)
+            ->find($id);
+
+        if (! $table) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Trashed table not found.',
+            ], 404);
+        }
+
+        $table->restore();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Table restored successfully.',
+        ]);
+    }
+
+    public function forceDelete(Request $request, int $id): JsonResponse
+    {
+        $restaurant = $request->attributes->get('restaurant');
+
+        $table = Table::withTrashed()
+            ->where('restaurant_id', $restaurant->id)
+            ->find($id);
+
+        if (! $table) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Table not found.',
+            ], 404);
+        }
+
+        $table->forceDelete();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Table permanently deleted.',
+        ]);
+    }
+
     private function buildQrSvg(string $restaurantSlug, string $tableSlug, string $token): string
     {
         $qrUrl = rtrim(config('app.frontend_url'))
-            . "/{$restaurantSlug}/menu/{$tableSlug}?token={$token}";
+            . "/{$restaurantSlug}/{$tableSlug}/menu?token={$token}";
 
         $renderer = new ImageRenderer(
             new RendererStyle(300, 10),

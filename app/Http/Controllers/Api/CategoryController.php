@@ -33,25 +33,35 @@ public function option(Request $request): JsonResponse
     public function index(Request $request): JsonResponse
     {
         $restaurant = $request->attributes->get('restaurant');
+        $baseQuery = Category::where('restaurant_id', $restaurant->id);
 
-        $query = Category::where('restaurant_id', $restaurant->id);
+        // 1. Calculate GLOBAL stats (unaffected by search/filters)
+        $stats = [
+            'total'    => (clone $baseQuery)->count(),
+            'active'   => (clone $baseQuery)->where('is_active', true)->whereNull('deleted_at')->count(),
+            'inactive' => (clone $baseQuery)->where('is_active', false)->whereNull('deleted_at')->count(),
+            'trash'    => (clone $baseQuery)->onlyTrashed()->count(),
+        ];
 
-        if ($request->boolean('only_active')) {
-            $query->where('is_active', true);
-        }
+        // 2. Apply filters for the paginated list
+        $query = clone $baseQuery;
+        if ($request->boolean('only_active')) $query->where('is_active', true);
+        if ($request->boolean('with_trashed')) $query->withTrashed();
+        elseif ($request->boolean('only_trashed')) $query->onlyTrashed();
+        else $query->whereNull('deleted_at');
 
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+                $q->where('name', 'like', "%{$search}%")->orWhere('description', 'like', "%{$search}%");
             });
         }
 
-        $perPage = $request->integer('per_page', 50);
+        $perPage = $request->integer('per_page', 15);
 
         return response()->json([
             'status' => 'success',
+            'stats'  => $stats,
             'data'   => $query->orderBy('sort_order')->orderBy('name')->paginate($perPage),
         ]);
     }
@@ -66,6 +76,13 @@ public function option(Request $request): JsonResponse
             'sort_order'  => 'nullable|integer|min:0',
             'is_active'   => 'nullable|boolean',
         ]);
+        
+         if (Category::withTrashed()->where('restaurant_id', $restaurant->id)->where('name', $validated['name'])->exists()) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'A category with this name already exists or has been previously deleted.',
+            ], 422);
+        }
 
         $slug = $this->generateUniqueSlug($restaurant->id, $validated['name']);
 
@@ -168,7 +185,7 @@ public function reorder(Request $request): JsonResponse
     ]);
 }
     
-    public function destroy(Request $request, int $id): JsonResponse
+public function destroy(Request $request, int $id): JsonResponse
     {
         $restaurant = $request->attributes->get('restaurant');
 
@@ -185,10 +202,58 @@ public function reorder(Request $request): JsonResponse
 
         return response()->json([
             'status'  => 'success',
-            'message' => 'Category deleted successfully.',
+            'message' => 'Category moved to trash successfully.',
         ]);
     }
 
+        public function restore(Request $request, int $id): JsonResponse
+    {
+        $restaurant = $request->attributes->get('restaurant');
+
+        $category = Category::onlyTrashed()
+            ->where('restaurant_id', $restaurant->id)
+            ->find($id);
+
+        if (! $category) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Trashed category not found.',
+            ], 404);
+        }
+
+        $category->restore();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Category restored successfully.',
+        ]);
+    }
+
+    public function forceDelete(Request $request, int $id): JsonResponse
+    {
+        $restaurant = $request->attributes->get('restaurant');
+
+        $category = Category::withTrashed()
+            ->where('restaurant_id', $restaurant->id)
+            ->find($id);
+
+        if (! $category) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Category not found.',
+            ], 404);
+        }
+
+        // The Category model's booted() method will automatically 
+        // cascade the forceDelete to its menuItems.
+        $category->forceDelete();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Category and its items permanently deleted.',
+        ]);
+    }
+    
     private function generateUniqueSlug(int $restaurantId, string $name, ?int $ignoreId = null): string
     {
         $base = Str::slug($name);
@@ -208,3 +273,5 @@ public function reorder(Request $request): JsonResponse
         return $slug;
     }
 }
+
+

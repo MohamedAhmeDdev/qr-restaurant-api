@@ -83,23 +83,32 @@ class AuthController extends Controller
 
         // 2. Restaurant Workspace Check (Non-Admins)
         if (! $user->isSuperAdmin() && ! $user->ownedOrganizations()->exists()) {
-            $staffRecords = $user->assignedRestaurants()
+            
+            // Since staff is only assigned to ONE restaurant, grab that single record
+            $staffRecord = $user->assignedRestaurants()
                 ->whereNull('staff.deleted_at')
-                ->get();
+                ->first();
 
-            if ($staffRecords->isEmpty()) {
+            if (! $staffRecord) {
                 throw ValidationException::withMessages([
-                    'email' => ['Your account is not assigned to any restaurant workspace.'],
+                    'email' => ['Your account is not linked to an active workspace, or it may have been deleted. Please contact support for assistance.'],
                 ]);
             }
 
-            $hasActiveRestaurant = $staffRecords->contains(function ($restaurant) {
-                return $restaurant->pivot->status === 'active' && $restaurant->is_active && $restaurant->status === 'active';
-            });
+            // Check the user's global role status (from the user_roles pivot table)
+            $userRole = $user->roles()->first();
+            $roleStatus = $userRole?->pivot->status ?? 'deactivated';
 
-            if (! $hasActiveRestaurant) {
+            if ($roleStatus !== 'active') {
                 throw ValidationException::withMessages([
-                    'email' => ['Your staff account is inactive or your assigned restaurant workspace is suspended.'],
+                    'email' => ["Your account status is currently '{$roleStatus}'."],
+                ]);
+            }
+
+            // Directly check the status of the single assigned restaurant
+            if (! $staffRecord->is_active || $staffRecord->status !== 'active') {
+                throw ValidationException::withMessages([
+                    'email' => ['Your assigned restaurant workspace is currently suspended.'],
                 ]);
             }
         }
@@ -189,23 +198,32 @@ class AuthController extends Controller
 
         // 2. Restaurant Workspace Check (Non-Admins)
         if (! $user->isSuperAdmin() && ! $user->ownedOrganizations()->exists()) {
-            $staffRecords = $user->assignedRestaurants()
+            
+            // Since staff is only assigned to ONE restaurant, grab that single record
+            $staffRecord = $user->assignedRestaurants()
                 ->whereNull('staff.deleted_at')
-                ->get();
+                ->first();
 
-            if ($staffRecords->isEmpty()) {
+            if (! $staffRecord) {
                 throw ValidationException::withMessages([
-                    'email' => ['Your account is not assigned to any restaurant workspace.'],
+                    'email' => ['Your account is not linked to an active workspace, or it may have been deleted. Please contact support for assistance.'],
                 ]);
             }
 
-            $hasActiveRestaurant = $staffRecords->contains(function ($restaurant) {
-                return $restaurant->pivot->status === 'active' && $restaurant->is_active && $restaurant->status === 'active';
-            });
+            // Check the user's global role status (from the user_roles pivot table)
+            $userRole = $user->roles()->first();
+            $roleStatus = $userRole?->pivot->status ?? 'deactivated';
 
-            if (! $hasActiveRestaurant) {
+            if ($roleStatus !== 'active') {
                 throw ValidationException::withMessages([
-                    'email' => ['Your staff account is inactive or your assigned restaurant workspace is suspended.'],
+                    'email' => ["Your account status is currently '{$roleStatus}'."],
+                ]);
+            }
+
+            // Directly check the status of the single assigned restaurant
+            if (! $staffRecord->is_active || $staffRecord->status !== 'active') {
+                throw ValidationException::withMessages([
+                    'email' => ['Your assigned restaurant workspace is currently suspended.'],
                 ]);
             }
         }

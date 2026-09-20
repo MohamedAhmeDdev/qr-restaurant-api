@@ -7,10 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ModifierGroup extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'restaurant_id',
@@ -28,6 +29,21 @@ class ModifierGroup extends Model
         'min_select'  => 'integer',
         'max_select'  => 'integer',
     ];
+
+    protected static function booted(): void
+    {
+        static::deleting(function (ModifierGroup $group) {
+            if ($group->isForceDeleting()) {
+                $group->options()->forceDelete();
+            } else {
+                $group->options()->delete();
+            }
+        });
+
+        static::restored(function (ModifierGroup $group) {
+            $group->options()->onlyTrashed()->restore();
+        });
+    }
 
     public function restaurant(): BelongsTo
     {

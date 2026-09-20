@@ -55,16 +55,12 @@ class EnsureRestaurantAccess
             ->first();
 
         if ($staffAssignment) {
-            // Retrieve role status explicitly scoped to THIS restaurant workspace
-            $userRole = $user->roles()
-                ->wherePivot('restaurant_id', $restaurant->id)
-                ->whereNull('user_roles.deleted_at')
-                ->first();
-
+            // Retrieve the user's global role status (Roles are global, not scoped per restaurant)
+            $userRole = $user->roles()->first();
             $roleStatus = $userRole?->pivot->status ?? 'deactivated';
 
             if ($roleStatus !== 'active') {
-                return $this->forceLogoutResponse($user, "Your account status for this workspace is currently '{$roleStatus}'. Session terminated.");
+                return $this->forceLogoutResponse($user, "Your account status is currently '{$roleStatus}'. Session terminated.");
             }
 
             $request->attributes->set('restaurant', $restaurant);

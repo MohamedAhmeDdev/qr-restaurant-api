@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers\Api\public;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\CategoryResource;
@@ -14,7 +14,6 @@ class PublicMenuController extends Controller
     public function index(Request $request): JsonResponse
     {
         $restaurant = $request->attributes->get('restaurant');
-        $table = $request->attributes->get('table');
 
         $searchTerm = $request->query('q');
 
@@ -72,19 +71,6 @@ class PublicMenuController extends Controller
         return response()->json([
             'status' => 'success',
             'data'   => [
-                'restaurant' => [
-                    'id'               => $restaurant->id,
-                    'name'             => $restaurant->name,
-                    'slug'             => $restaurant->slug,
-                    'logo'             => $restaurant->logo ?? null,
-                    'background_image' => $restaurant->background_image ?? null,
-                    'currency'         => $restaurant->currency ?? 'USD',
-                ],
-                'table' => [
-                    'id'   => $table->id,
-                    'name' => $table->name,
-                    'slug' => $table->slug,
-                ],
                 'filters_applied' => [
                     'q'            => $searchTerm,
                     'dietary_tags' => array_values($dietaryTags),
@@ -94,7 +80,7 @@ class PublicMenuController extends Controller
         ]);
     }
 
-    public function show(Request $request, int $itemId): JsonResponse
+public function show(Request $request, $itemId): JsonResponse
     {
         $restaurant = $request->attributes->get('restaurant');
 
@@ -106,13 +92,12 @@ class PublicMenuController extends Controller
                     $mQuery->where('is_active', true)
                         ->with([
                             'options' => function ($oQuery) {
-                                $oQuery->where('is_active', true)
-                                    ->orderBy('sort_order');
+                                $oQuery->where('is_available', true);
                             },
                         ]);
                 },
             ])
-            ->find($itemId);
+            ->find((int) $itemId);
 
         if (! $menuItem) {
             return response()->json([

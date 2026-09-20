@@ -16,23 +16,32 @@ class MenuItemController extends Controller
     public function index(Request $request): JsonResponse
     {
         $restaurant = $request->attributes->get('restaurant');
+        $baseQuery = MenuItem::where('restaurant_id', $restaurant->id);
 
-        $query = MenuItem::where('restaurant_id', $restaurant->id)
-            ->with(['category:id,name,slug', 'modifierGroups.options']);
+        $stats = [
+            'total'    => (clone $baseQuery)->count(),
+            'active'   => (clone $baseQuery)->where('is_active', true)->whereNull('deleted_at')->count(),
+            'inactive' => (clone $baseQuery)->where('is_active', false)->whereNull('deleted_at')->count(),
+            'trash'    => (clone $baseQuery)->onlyTrashed()->count(),
+        ];
 
-        if ($request->filled('category_id')) {
-            $query->where('category_id', $request->category_id);
+        $query = clone $baseQuery;
+        if ($request->boolean('with_trashed')) $query->withTrashed();
+        elseif ($request->boolean('only_trashed')) $query->onlyTrashed();
+        else $query->whereNull('deleted_at');
+
+        if ($request->filled('status') && $request->status !== 'all') {
+            $query->where('is_active', $request->status === 'active');
+        } elseif ($request->has('is_active')) {
+            $query->where('is_active', $request->boolean('is_active'));
         }
-
-        if ($request->boolean('only_available')) {
-            $query->where('is_available', true);
-        }
-
+        
+        if ($request->filled('category_id')) $query->where('category_id', $request->category_id);
+        if ($request->boolean('only_available')) $query->where('is_available', true);
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+                $q->where('name', 'like', "%{$search}%")->orWhere('description', 'like', "%{$search}%");
             });
         }
 
@@ -40,7 +49,8 @@ class MenuItemController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'data'   => $query->orderBy('sort_order')->orderBy('name')->paginate($perPage),
+            'stats'  => $stats,
+            'data'   => $query->with(['category:id,name,slug', 'modifierGroups.options'])->orderBy('sort_order')->orderBy('name')->paginate($perPage),
         ]);
     }
 
@@ -55,11 +65,19 @@ class MenuItemController extends Controller
             'price'             => 'required|numeric|min:0|max:999999.99',
             'image'             => 'required|image|mimes:jpeg,png,jpg,webp|max:2048',
             'is_available'      => 'nullable|boolean',
-            'is_active'         => 'nullable|boolean', // Added
+            'is_active'         => 'nullable|boolean',
             'sort_order'        => 'nullable|integer|min:0',
             'modifier_groups'   => 'nullable|array',
             'modifier_groups.*' => 'integer|exists:modifier_groups,id',
         ]);
+
+           if (MenuItem::withTrashed()->where('restaurant_id', $restaurant->id)->where('name', $validated['name'])->exists()) {
+        return response()->json([
+            'status'  => 'error',
+            'message' => 'A menu item with this name already exists or has been previously deleted.',
+        ], 422);
+    }
+
 
         $category = $restaurant->categories()->find($validated['category_id']);
         if (! $category) {
@@ -86,7 +104,7 @@ class MenuItemController extends Controller
                 'price'         => $validated['price'],
                 'image'         => $imagePath ? Storage::url($imagePath) : null,
                 'is_available'  => $validated['is_available'] ?? true,
-                'is_active'     => $validated['is_active'] ?? true, // Added default true
+                'is_active'     => $validated['is_active'] ?? true,
                 'sort_order'    => $validated['sort_order'] ?? 0,
             ]);
 
@@ -149,7 +167,7 @@ class MenuItemController extends Controller
             'price'             => 'sometimes|numeric|min:0|max:999999.99',
             'image'             => 'nullable|image|mimes:jpeg,png,jpg,webp|max:2048',
             'is_available'      => 'sometimes|boolean',
-            'is_active'         => 'sometimes|boolean', // Added
+            'is_active'         => 'sometimes|boolean',
             'sort_order'        => 'sometimes|integer|min:0',
             'modifier_groups'   => 'sometimes|array',
             'modifier_groups.*' => 'integer|exists:modifier_groups,id',
@@ -199,7 +217,6 @@ class MenuItemController extends Controller
         ]);
     }
 
-    // Toggle is_active state
     public function toggleActive(Request $request, int $id): JsonResponse
     {
         $restaurant = $request->attributes->get('restaurant');
@@ -221,7 +238,6 @@ class MenuItemController extends Controller
         ]);
     }
 
-    // Toggle is_available state
     public function toggleAvailability(Request $request, int $id): JsonResponse
     {
         $restaurant = $request->attributes->get('restaurant');
@@ -256,20 +272,75 @@ class MenuItemController extends Controller
             ], 404);
         }
 
-        if ($menuItem->image) {
-            $oldPath = str_replace('/storage/', '', $menuItem->image);
-            Storage::disk('public')->delete($oldPath);
-        }
+        // NO Storage::disk('public')->delete() HERE:
+        // Preserves stored image on soft-delete so it restores intact if recovered from trash.
 
         $menuItem->modifierGroups()->detach();
         $menuItem->delete();
 
         return response()->json([
             'status'  => 'success',
-            'message' => 'Menu item deleted successfully.',
+            'message' => 'Menu item moved to trash successfully.',
         ]);
     }
 
+        public function restore(Request $request, int $id): JsonResponse
+    {
+        $restaurant = $request->attributes->get('restaurant');
+
+        $menuItem = MenuItem::onlyTrashed()
+            ->where('restaurant_id', $restaurant->id)
+            ->find($id);
+
+        if (! $menuItem) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Trashed menu item not found.',
+            ], 404);
+        }
+
+        $menuItem->restore();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Menu item restored successfully.',
+        ]);
+    }
+
+    public function forceDelete(Request $request, int $id): JsonResponse
+    {
+        $restaurant = $request->attributes->get('restaurant');
+
+        $menuItem = MenuItem::withTrashed()
+            ->where('restaurant_id', $restaurant->id)
+            ->find($id);
+
+        if (! $menuItem) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Menu item not found.',
+            ], 404);
+        }
+
+        // 1. Detach modifier group relationships
+        $menuItem->modifierGroups()->detach();
+
+        // 2. Delete the associated image from storage
+        if ($menuItem->image) {
+            $oldPath = str_replace('/storage/', '', $menuItem->image);
+            Storage::disk('public')->delete($oldPath);
+        }
+
+        // 3. Permanently delete the record
+        $menuItem->forceDelete();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Menu item and its image permanently deleted.',
+        ]);
+    }
+
+    
     private function generateUniqueSlug(int $restaurantId, string $name, ?int $ignoreId = null): string
     {
         $base = Str::slug($name);

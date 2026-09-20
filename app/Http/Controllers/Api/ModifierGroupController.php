@@ -33,30 +33,42 @@ class ModifierGroupController extends Controller
     public function index(Request $request): JsonResponse
     {
         $restaurant = $request->attributes->get('restaurant');
+        $baseQuery = ModifierGroup::where('restaurant_id', $restaurant->id);
 
-        $query = ModifierGroup::where('restaurant_id', $restaurant->id)
-            ->with('options');
+        $stats = [
+            'total'    => (clone $baseQuery)->count(),
+            'active'   => (clone $baseQuery)->where('is_active', true)->whereNull('deleted_at')->count(),
+            'inactive' => (clone $baseQuery)->where('is_active', false)->whereNull('deleted_at')->count(),
+            'trash'    => (clone $baseQuery)->onlyTrashed()->count(),
+        ];
 
-        if ($request->has('is_active')) {
+        $query = clone $baseQuery;
+        if ($request->boolean('with_trashed')) $query->withTrashed();
+        elseif ($request->boolean('only_trashed')) $query->onlyTrashed();
+        else $query->whereNull('deleted_at');
+
+        if ($request->filled('status') && $request->status !== 'all') {
+            $query->where('is_active', $request->status === 'active');
+        } elseif ($request->has('is_active')) {
             $query->where('is_active', $request->boolean('is_active'));
         }
 
+        if ($request->has('is_active')) $query->where('is_active', $request->boolean('is_active'));
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
                   ->orWhere('description', 'like', "%{$search}%")
-                  ->orWhereHas('options', function ($optQuery) use ($search) {
-                      $optQuery->where('name', 'like', "%{$search}%");
-                  });
+                  ->orWhereHas('options', fn($opt) => $opt->where('name', 'like', "%{$search}%"));
             });
         }
 
-        $perPage = $request->integer('per_page', 12);
+        $perPage = $request->integer('per_page', 15);
 
         return response()->json([
             'status' => 'success',
-            'data'   => $query->orderBy('name')->paginate($perPage),
+            'stats'  => $stats,
+            'data'   => $query->with('options')->orderBy('name')->paginate($perPage),
         ]);
     }
 
@@ -76,6 +88,13 @@ class ModifierGroupController extends Controller
             'options.*.price'        => 'nullable|numeric|min:0',
             'options.*.is_available' => 'nullable|boolean',
         ]);
+
+         if (ModifierGroup::withTrashed()->where('restaurant_id', $restaurant->id)->where('name', $validated['name'])->exists()) {
+        return response()->json([
+            'status'  => 'error',
+            'message' => 'A modifier group with this name already exists or has been previously deleted.',
+        ], 422);
+    }
 
         $group = DB::transaction(function () use ($restaurant, $validated) {
             $group = ModifierGroup::create([
@@ -193,6 +212,32 @@ class ModifierGroupController extends Controller
         ]);
     }
 
+        /**
+     * Toggle the active/inactive status of a modifier group.
+     */
+    public function toggleActive(Request $request, int $id): JsonResponse
+    {
+        $restaurant = $request->attributes->get('restaurant');
+
+        $group = ModifierGroup::where('restaurant_id', $restaurant->id)->find($id);
+
+        if (! $group) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Modifier group not found.',
+            ], 404);
+        }
+
+        $newStatus = ! $group->is_active;
+        $group->update(['is_active' => $newStatus]);
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Modifier group ' . ($newStatus ? 'activated' : 'deactivated') . ' successfully.',
+            'data'    => $group,
+        ]);
+    }
+    
     public function destroy(Request $request, int $id): JsonResponse
     {
         $restaurant = $request->attributes->get('restaurant');
@@ -210,7 +255,56 @@ class ModifierGroupController extends Controller
 
         return response()->json([
             'status'  => 'success',
-            'message' => 'Modifier group deleted successfully.',
+            'message' => 'Modifier group moved to trash successfully.',
+        ]);
+    }
+
+
+        public function restore(Request $request, int $id): JsonResponse
+    {
+        $restaurant = $request->attributes->get('restaurant');
+
+        $group = ModifierGroup::onlyTrashed()
+            ->where('restaurant_id', $restaurant->id)
+            ->find($id);
+
+        if (! $group) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Trashed modifier group not found.',
+            ], 404);
+        }
+
+        $group->restore();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Modifier group restored successfully.',
+        ]);
+    }
+
+    public function forceDelete(Request $request, int $id): JsonResponse
+    {
+        $restaurant = $request->attributes->get('restaurant');
+
+        $group = ModifierGroup::withTrashed()
+            ->where('restaurant_id', $restaurant->id)
+            ->find($id);
+
+        if (! $group) {
+            return response()->json([
+                'status'  => 'error',
+                'message' => 'Modifier group not found.',
+            ], 404);
+        }
+
+        // The ModifierGroup model's booted() method will automatically 
+        // cascade the forceDelete to its options.
+        $group->forceDelete();
+
+        return response()->json([
+            'status'  => 'success',
+            'message' => 'Modifier group and its options permanently deleted.',
         ]);
     }
 }
