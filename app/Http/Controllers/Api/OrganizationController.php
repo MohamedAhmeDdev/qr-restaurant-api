@@ -120,8 +120,8 @@ public function destroy(Request $request, int $id): JsonResponse
 
     // Store token on organization or invitation/restore table for validation
     $organization->update([
-        'restore_token' => $token,
-        'restore_token_expires_at' => now()->addDays(30),
+        'token'      => $token,
+        'expires_at' => now()->addDays(30),
     ]);
 
     // Send email notification with SPA frontend URL
@@ -148,7 +148,7 @@ public function restore(Request $request): JsonResponse
 
     // Find the soft-deleted organization matching the token and owner email
     $organization = Organizations::onlyTrashed()
-        ->where('restore_token', $validated['token'])
+        ->where('token', $validated['token'])
         ->whereHas('owner', function ($query) use ($validated) {
             $query->where('email', $validated['email']);
         })
@@ -162,7 +162,7 @@ public function restore(Request $request): JsonResponse
     }
 
     // Check if the token has expired
-    if ($organization->restore_token_expires_at && now()->greaterThan($organization->restore_token_expires_at)) {
+    if ($organization->expires_at && now()->greaterThan($organization->expires_at)) {
         return response()->json([
             'status'  => 'error',
             'message' => 'The restoration link has expired. Please contact support.',
@@ -176,8 +176,8 @@ public function restore(Request $request): JsonResponse
 
         // 2. Clear the restore token fields after model is active
         $organization->update([
-            'restore_token'            => null,
-            'restore_token_expires_at' => null,
+            'token'      => null,
+            'expires_at' => null,
         ]);
     });
 
@@ -366,12 +366,15 @@ public function restore(Request $request): JsonResponse
         ], 201);
     }
 
+
     /**
      * Resend/Refresh Invitation Token
      */
     public function resendInvite(Request $request): JsonResponse
     {
-        if (! $request->user() || $request->user()->roles()->first()?->slug !== 'super_admin') {
+        $user = $request->user();
+        
+        if (! $user || ! $user->roles->pluck('slug')->contains('super_admin')) {
             return response()->json([
                 'status'  => 'error',
                 'message' => 'Unauthorized. Super Admin permissions required.',
@@ -398,7 +401,7 @@ public function restore(Request $request): JsonResponse
 
         $invitation->update([
             'token'      => $newToken,
-            'invited_by' => $request->user()->id,
+            'invited_by' => $user->id,
             'expires_at' => $newExpiresAt,
         ]);
 
