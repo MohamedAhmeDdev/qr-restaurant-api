@@ -14,21 +14,28 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
-
     /**
      * Build the standard user payload.
      * For staff roles, includes assigned restaurants + organization.
      */
     private function buildUserPayload(User $user): array
     {
-        $user->load('roles');
+        // 1. Eager load roles and their permissions
+        $user->load('roles.permissions');
+        
         $role = $user->roles->first()?->slug;
+
+        // 2. Extract all unique permission slugs from all assigned roles
+        $permissions = $user->roles->flatMap(function ($role) {
+            return $role->permissions->pluck('slug');
+        })->unique()->values();
 
         $payload = [
             'id'    => $user->id,
             'name'  => $user->name,
             'email' => $user->email,
             'role'  => $role,
+            'permissions' => $permissions,
         ];
 
         // Staff roles receive assigned restaurant data
