@@ -10,15 +10,16 @@ class RolePermissionSeeder extends Seeder
 {
     public function run(): void
     {
-        // 1. Super Admin: Assign ALL permissions
-         $restaurantAdmin = Role::where('slug', 'super_admin')->first();
-        if ($restaurantAdmin) {
-            $restaurantAdminPermissions = Permission::whereNotIn('slug', [
+        // 1. Super Admin: Explicitly assign ONLY platform management permissions
+        $superAdmin = Role::where('slug', 'super_admin')->first();
+        if ($superAdmin) {
+            $superAdminPermissions = Permission::whereIn('slug', [
                 'permission.view',
                 'permission.create',
                 'permission.update',
                 'permission.delete',
                 'permission.assign',
+                'role.view',
                 'role.create',
                 'role.update',
                 'role.delete',
@@ -26,12 +27,13 @@ class RolePermissionSeeder extends Seeder
                 'organization.force_delete',
             ])->get();
 
-            $restaurantAdmin->permissions()->sync($restaurantAdminPermissions->pluck('id'));
+            $superAdmin->permissions()->sync($superAdminPermissions->pluck('id'));
         }
-        // 2. Restaurant Admin: All permissions EXCEPT super admin specific actions
+
+        // 2. Restaurant Admin: Has access to all core restaurant operational groups
         $restaurantAdmin = Role::where('slug', 'restaurant_admin')->first();
         if ($restaurantAdmin) {
-            $restaurantAdminPermissions = Permission::whereNotIn('group', [
+            $restaurantAdminPermissions = Permission::whereIn('group', [
                 'organization',
                 'restaurant',
                 'category',
@@ -46,7 +48,7 @@ class RolePermissionSeeder extends Seeder
             $restaurantAdmin->permissions()->sync($restaurantAdminPermissions->pluck('id'));
         }
 
-        // 3. Manager: Operational permissions (Menu, Categories, Modifiers, Tables, Staff, Orders, Reports)
+        // 3. Manager: Operational permissions
         $manager = Role::where('slug', 'manager')->first();
         if ($manager) {
             $managerPermissions = Permission::whereIn('group', [

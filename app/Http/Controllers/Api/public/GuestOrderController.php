@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api\public;
+namespace App\Http\Controllers\Api\Public;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Guest\StoreGuestOrderRequest;
@@ -12,38 +12,37 @@ use App\Models\OrderItemModifier;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 class GuestOrderController extends Controller
 {
     /**
      * Get the current active order for the scanned table.
      */
-public function current(Request $request): JsonResponse
-{
-    $restaurant = $request->attributes->get('restaurant');
-    $table = $request->attributes->get('table');
+    public function current(Request $request): JsonResponse
+    {
+        $restaurant = $request->attributes->get('restaurant');
+        $table = $request->attributes->get('table');
 
-    $order = Order::where('restaurant_id', $restaurant->id) // Added for security
-        ->where('table_id', $table->id)
-        ->whereIn('status', ['pending', 'preparing', 'ready'])
-        ->with(['items.modifiers', 'table:id,name,slug'])
-        ->latest()
-        ->first();
+        $order = Order::where('restaurant_id', $restaurant->id)
+            ->where('table_id', $table->id)
+            ->whereIn('status', ['pending', 'preparing', 'ready'])
+            ->with(['items.modifiers', 'table:id,name,slug'])
+            ->latest()
+            ->first();
 
-    if (! $order) {
+        if (! $order) {
+            return response()->json([
+                'status'  => 'success',
+                'message' => 'No active order found for this table.',
+                'data'    => null,
+            ]);
+        }
+
         return response()->json([
-            'status'  => 'success',
-            'message' => 'No active order found for this table.',
-            'data'    => null,
+            'status' => 'success',
+            'data'   => $order,
         ]);
     }
-
-    return response()->json([
-        'status' => 'success',
-        'data'   => $order,
-    ]);
-}
 
     public function store(StoreGuestOrderRequest $request): JsonResponse
     {
@@ -66,6 +65,7 @@ public function current(Request $request): JsonResponse
 
             foreach ($validated['items'] as $itemData) {
                 $menuItem = MenuItem::where('restaurant_id', $restaurant->id)
+                    ->where('is_available', true)
                     ->findOrFail($itemData['menu_item_id']);
 
                 $basePrice = (float) $menuItem->price;
@@ -83,9 +83,12 @@ public function current(Request $request): JsonResponse
 
                 if (! empty($itemData['modifiers'])) {
                     foreach ($itemData['modifiers'] as $modData) {
+                        // Security: only allow active options from this restaurant
                         $option = ModifierOption::whereHas('modifierGroup', function ($q) use ($restaurant) {
-                            $q->where('restaurant_id', $restaurant->id);
-                        })->findOrFail($modData['modifier_option_id']);
+                                $q->where('restaurant_id', $restaurant->id);
+                            })
+                            ->where('is_available', true)
+                            ->findOrFail($modData['modifier_option_id']);
 
                         $modPrice = (float) $option->price;
 

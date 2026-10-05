@@ -718,7 +718,7 @@ class StaffController extends Controller
             'email'      => 'sometimes|email|max:255|unique:users,email,' . $id,
             'role_id'    => 'nullable',
             'role'       => 'nullable',
-            'status'     => 'sometimes|string|in:active,on_leave,deactivated',
+            'status'     => 'sometimes|string|in:active,suspended,on_leave,deactivated',
             'shift_type' => 'sometimes|string|in:day,night,full_time,flexible',
         ]);
 
