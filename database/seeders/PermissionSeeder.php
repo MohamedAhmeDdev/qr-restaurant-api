@@ -395,6 +395,15 @@ class PermissionSeeder extends Seeder
                 'group' => 'report',
                 'description' => 'View report',
             ],
+
+            [
+                'name' => 'View Sales Report',
+                'slug' => 'report.sales.view',
+                'group' => 'report',
+                'description' => 'View sales report',
+            ],
+
+           
         ];
 
         foreach ($permissions as $permission) {

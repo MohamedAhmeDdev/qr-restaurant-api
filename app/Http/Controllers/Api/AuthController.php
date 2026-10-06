@@ -47,6 +47,7 @@ class AuthController extends Controller
                     'restaurants.organization_id',
                     'restaurants.name',
                     'restaurants.slug',
+                    'restaurants.logo',
                 ]);
 
             $firstRestaurant = $assignedRestaurants->first();

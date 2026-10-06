@@ -75,7 +75,6 @@ class RolePermissionSeeder extends Seeder
                 'category.view',
                 'modifier.view',
                 'table.view',
-                'report.view',
             ])->get();
 
             $cashier->permissions()->sync($cashierPermissions->pluck('id'));
